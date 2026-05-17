@@ -8,7 +8,21 @@
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
-      <form class="login-card" id="loginForm">
+      <div class="login-card" id="loginLoading">
+        <div class="brand login-brand">
+          <div class="brand-mark">ML</div>
+          <div>
+            <strong>Multilox</strong>
+            <span>Farm Management System</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Loading shared farm data</p>
+          <h1>Please wait</h1>
+        </div>
+      </div>
+
+      <form class="login-card app-hidden" id="loginForm">
         <div class="brand login-brand">
           <div class="brand-mark">ML</div>
           <div>
@@ -20,6 +34,13 @@
           <p class="eyebrow">Secure access</p>
           <h1>Sign in</h1>
         </div>
+        <label>Login as
+          <select id="loginRole" required>
+            <option value="main-admin">Main Admin</option>
+            <option value="admin">Secondary Admin</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+        </label>
         <label>Username<input id="loginUsername" autocomplete="username" required /></label>
         <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
         <p class="login-error" id="loginError" role="alert"></p>
@@ -35,17 +56,17 @@
           </div>
         </div>
         <div>
-          <p class="eyebrow">First admin account</p>
-          <h1>Create account</h1>
+          <p class="eyebrow">First main admin account</p>
+          <h1>Create Main Admin</h1>
         </div>
         <label>Full name<input id="setupName" autocomplete="name" required /></label>
         <label>Username<input id="setupUsername" autocomplete="username" required /></label>
         <label>Password<input id="setupPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
         <label>Confirm password<input id="setupConfirmPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
         <p class="login-error" id="setupError" role="alert"></p>
-        <button type="submit">Create admin account</button>
+        <button type="submit">Create main admin account</button>
         <div class="credential-hint">
-          <span>This creates the first Multilox admin account on this browser.</span>
+          <span>This creates the first Main Admin account for the shared Multilox system.</span>
         </div>
       </form>
     </section>
@@ -77,7 +98,8 @@
           <strong id="currentUserLabel">Not signed in</strong>
           <label for="roleSelect">Role</label>
           <select id="roleSelect">
-            <option value="admin">Admin</option>
+            <option value="main-admin">Main Admin</option>
+            <option value="admin">Secondary Admin</option>
             <option value="supervisor">Supervisor</option>
           </select>
           <button class="logout-button" id="logoutBtn" type="button">Log out</button>
@@ -641,7 +663,7 @@
                 <label>Password<input id="accountPassword" type="password" minlength="6" required /></label>
                 <label>Role
                   <select id="accountRole">
-                    <option value="admin">Admin</option>
+                    <option value="admin">Secondary Admin</option>
                     <option value="supervisor">Supervisor</option>
                   </select>
                 </label>

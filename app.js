@@ -13,7 +13,9 @@ let currentUser = loadCurrentUser();
 const els = {
   appShell: document.getElementById("appShell"),
   loginScreen: document.getElementById("loginScreen"),
+  loginLoading: document.getElementById("loginLoading"),
   loginForm: document.getElementById("loginForm"),
+  loginRole: document.getElementById("loginRole"),
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
   loginError: document.getElementById("loginError"),
@@ -180,32 +182,37 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  syncToServer();
+  return syncToServer();
 }
 
 async function syncFromServer() {
   try {
     const response = await fetch(API_STATE_URL, { cache: "no-store" });
-    if (!response.ok) return;
+    if (!response.ok) return false;
     const serverState = await response.json();
     mergeState(serverState);
+    const changed = migrateState();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (changed) await syncToServer();
     currentUser = loadCurrentUser();
-    renderAll();
+    return true;
   } catch {
     // Opening index.html directly still works as a single-device fallback.
+    return false;
   }
 }
 
 async function syncToServer() {
   try {
-    await fetch(API_STATE_URL, {
+    const response = await fetch(API_STATE_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state),
     });
+    return response.ok;
   } catch {
     // If the API is unavailable, local storage keeps the MVP usable on this device.
+    return false;
   }
 }
 
@@ -237,6 +244,18 @@ function loadCurrentUser() {
   }
 }
 
+function migrateState() {
+  let changed = false;
+  if (!state.users.some((user) => user.role === "main-admin")) {
+    const firstAdmin = state.users.find((user) => user.role === "admin" && user.status === "active");
+    if (firstAdmin) {
+      firstAdmin.role = "main-admin";
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function saveCurrentUser(user) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
 }
@@ -259,7 +278,17 @@ function normalizeUsername(username) {
 }
 
 function hasAdminAccount() {
-  return state.users.some((user) => user.role === "admin" && user.status === "active");
+  return state.users.some((user) => user.role === "main-admin" && user.status === "active");
+}
+
+function isSupervisorRole(role) {
+  return role === "supervisor";
+}
+
+function roleLabel(role) {
+  if (role === "main-admin") return "Main Admin";
+  if (role === "admin") return "Secondary Admin";
+  return "Supervisor";
 }
 
 function id(prefix) {
@@ -336,19 +365,20 @@ function renderAuth() {
   const needsSetup = !hasAdminAccount();
   const isLoggedIn = Boolean(currentUser);
   els.loginScreen.classList.toggle("app-hidden", isLoggedIn);
+  els.loginLoading.classList.add("app-hidden");
   els.loginForm.classList.toggle("app-hidden", needsSetup || isLoggedIn);
   els.setupForm.classList.toggle("app-hidden", !needsSetup || isLoggedIn);
   els.appShell.classList.toggle("app-hidden", !isLoggedIn);
   if (!isLoggedIn) return;
 
-  els.currentUserLabel.textContent = currentUser.name;
+  els.currentUserLabel.textContent = `${currentUser.name} (${roleLabel(currentUser.role)})`;
   els.roleSelect.value = currentUser.role;
   els.roleSelect.disabled = true;
 }
 
 function renderRoleAccess() {
   const role = currentUser?.role || els.roleSelect.value;
-  const isSupervisor = role === "supervisor";
+  const isSupervisor = isSupervisorRole(role);
   document.querySelector('[data-view="rates"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="credits"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="loans"]').classList.toggle("hidden-for-role", isSupervisor);
@@ -907,7 +937,7 @@ function renderAccounts() {
     <tr>
       <td>${user.name}</td>
       <td>${user.username}</td>
-      <td>${user.role}</td>
+      <td>${roleLabel(user.role)}</td>
       <td><span class="status ${user.status}">${user.status}</span></td>
     </tr>
   `).join("") || emptyRow(4, "No user accounts created.");
@@ -1025,8 +1055,9 @@ els.navButtons.forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
 });
 
-els.setupForm.addEventListener("submit", (event) => {
+els.setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  els.setupError.textContent = "";
   const password = els.setupPassword.value;
   if (password !== els.setupConfirmPassword.value) {
     els.setupError.textContent = "Passwords do not match.";
@@ -1043,11 +1074,18 @@ els.setupForm.addEventListener("submit", (event) => {
     name: els.setupName.value.trim(),
     username,
     passwordHash: hashPassword(password),
-    role: "admin",
+    role: "main-admin",
     status: "active",
     createdAt: new Date().toISOString(),
   });
-  saveState();
+  const saved = await saveState();
+  if (!saved && location.protocol !== "file:") {
+    state.users = state.users.filter((user) => user.username !== username);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    els.setupError.textContent = "Could not save the Main Admin account to the shared server. Check deployment storage/API and try again.";
+    renderAll();
+    return;
+  }
   els.setupForm.reset();
   els.setupError.textContent = "";
   renderAll();
@@ -1055,16 +1093,19 @@ els.setupForm.addEventListener("submit", (event) => {
 
 els.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  els.loginError.textContent = "";
   const username = els.loginUsername.value.trim().toLowerCase();
   const password = els.loginPassword.value;
+  const selectedRole = els.loginRole.value;
   const user = state.users.find((candidate) => {
     return candidate.username === username
       && candidate.passwordHash === hashPassword(password)
+      && candidate.role === selectedRole
       && candidate.status === "active";
   });
 
   if (!user) {
-    els.loginError.textContent = "Invalid username or password.";
+    els.loginError.textContent = `Invalid ${roleLabel(selectedRole)} username or password.`;
     return;
   }
 
@@ -1098,7 +1139,7 @@ els.clearDataBtn.addEventListener("click", () => {
   renderAll();
 });
 
-els.workerForm.addEventListener("submit", (event) => {
+els.workerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const existing = state.workers.find((worker) => worker.id === els.workerId.value);
   const worker = {
@@ -1119,7 +1160,7 @@ els.workerForm.addEventListener("submit", (event) => {
   } else {
     state.workers.push(worker);
   }
-  saveState();
+  await saveState();
   resetWorkerForm();
   renderAll();
 });
@@ -1338,15 +1379,16 @@ els.cancelLoanEdit.addEventListener("click", resetLoanForm);
   filter.addEventListener("input", renderLoans);
 });
 
-els.accountForm.addEventListener("submit", (event) => {
+els.accountForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  els.accountMessage.textContent = "";
   const username = normalizeUsername(els.accountUsername.value);
   if (state.users.some((user) => user.username === username)) {
     els.accountMessage.textContent = "That username is already in use.";
     return;
   }
 
-  state.users.push({
+  const newUser = {
     id: id("user"),
     name: els.accountName.value.trim(),
     username,
@@ -1354,17 +1396,25 @@ els.accountForm.addEventListener("submit", (event) => {
     role: els.accountRole.value,
     status: "active",
     createdAt: new Date().toISOString(),
-  });
-  saveState();
+  };
+  state.users.push(newUser);
+  const saved = await saveState();
+  if (!saved && location.protocol !== "file:") {
+    state.users = state.users.filter((user) => user.id !== newUser.id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    els.accountMessage.textContent = "Could not save this account to the shared server. Try again.";
+    renderAccounts();
+    return;
+  }
   els.accountForm.reset();
-  els.accountMessage.textContent = "Account created.";
+  els.accountMessage.textContent = `${roleLabel(newUser.role)} account created.`;
   renderAccounts();
 });
 
 els.workType.addEventListener("change", syncSelectedRate);
 els.workQuantity.addEventListener("input", syncWorkTotal);
 els.workRate.addEventListener("input", syncWorkTotal);
-els.workForm.addEventListener("submit", (event) => {
+els.workForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const rate = getRate(els.workType.value);
   const quantity = Number(els.workQuantity.value);
@@ -1379,7 +1429,7 @@ els.workForm.addEventListener("submit", (event) => {
     total: quantity * rateAmount,
     comments: els.workComments.value.trim(),
   });
-  saveState();
+  await saveState();
   els.workForm.reset();
   els.workDate.value = todayIso;
   renderAll();
@@ -1504,5 +1554,15 @@ resetRateForm();
 resetCreditForm();
 resetAttendanceForm();
 resetLoanForm();
-renderAll();
-syncFromServer();
+initializeApp();
+
+async function initializeApp() {
+  await syncFromServer();
+  const changed = migrateState();
+  if (changed) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    await syncToServer();
+  }
+  currentUser = loadCurrentUser();
+  renderAll();
+}

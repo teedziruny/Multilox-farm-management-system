@@ -26,7 +26,13 @@ The app now saves shared data through the server in `data/db.json`. Opening `ind
 
 ## Login Credentials
 
-On first use, create the first admin account from the setup screen. After signing in as admin, use the Accounts module to create additional admin or supervisor users.
+On first use, create the first Main Admin account from the setup screen. After signing in as Main Admin, use the Accounts module to create Secondary Admin or Supervisor users.
+
+The login screen lets users choose:
+
+- Main Admin
+- Secondary Admin
+- Supervisor
 
 ## Deploy Online
 
