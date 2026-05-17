@@ -14,6 +14,9 @@ const DEFAULT_STATE = {
   deductions: [],
   credits: [],
   users: [],
+  attendance: [],
+  loans: [],
+  settings: { farmName: "Multilox", currency: "USD", logoDataUrl: "" },
 };
 
 const MIME_TYPES = {
@@ -50,6 +53,9 @@ async function readState() {
     deductions: loaded.deductions || [],
     credits: loaded.credits || [],
     users: loaded.users || [],
+    attendance: loaded.attendance || [],
+    loans: loaded.loans || [],
+    settings: { ...DEFAULT_STATE.settings, ...(loaded.settings || {}) },
   };
 }
 
@@ -64,6 +70,9 @@ async function writeState(state) {
     deductions: Array.isArray(state.deductions) ? state.deductions : [],
     credits: Array.isArray(state.credits) ? state.credits : [],
     users: Array.isArray(state.users) ? state.users : [],
+    attendance: Array.isArray(state.attendance) ? state.attendance : [],
+    loans: Array.isArray(state.loans) ? state.loans : [],
+    settings: { ...DEFAULT_STATE.settings, ...(state.settings || {}) },
   };
   await fs.writeFile(DATA_FILE, JSON.stringify(nextState, null, 2));
   return nextState;

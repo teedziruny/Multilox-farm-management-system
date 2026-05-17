@@ -44,15 +44,20 @@ Important: if the host uses temporary file storage, `data/db.json` may reset whe
 
 - Worker registration with auto-generated employee numbers
 - Worker search, edit, delete, and active/inactive status
+- Worker attendance with present/absent/sick/leave status
+- Department filters for workers and payroll
 - Daily work register with automatic earnings calculation
 - Work rate management with active/inactive rates
 - Grocery credit records for employee purchases
+- Credit balance summaries by worker
+- Loans, cash advances, and penalties with monthly payroll deductions
 - Monthly payroll calculation with NSSA-style percentage deduction
 - Automatic payroll deductions for grocery credits
+- Company settings for farm name, currency, and payslip logo
 - Printable payslips with browser PDF saving through the print dialog
 - Printable payroll summary
-- Daily labor cost, productivity, and expense reports
-- CSV exports for reports
+- Daily labor cost, productivity, expense, department labor, attendance, and credit reports
+- CSV and Excel-style exports for reports and payroll
 - Admin and supervisor role views
 
 ## Production Next Steps
@@ -61,6 +66,5 @@ Important: if the host uses temporary file storage, `data/db.json` may reset whe
 - Add full API endpoints per module
 - Add secure role-based authentication
 - Add supervisor-to-worker assignment rules
-- Add configurable deductions for cash advances, loans, and penalties
 - Move user accounts and passwords to a backend with proper password hashing
 - Add server-generated PDFs and Excel exports

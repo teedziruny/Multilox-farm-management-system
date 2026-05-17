@@ -2,6 +2,7 @@ const STORAGE_KEY = "farm-management-mvp-state";
 const SESSION_KEY = "farm-management-mvp-user";
 const API_STATE_URL = "/api/state";
 const FARM_NAME = "Multilox";
+const DEFAULT_SETTINGS = { farmName: FARM_NAME, currency: "USD", logoDataUrl: "" };
 
 const todayIso = new Date().toISOString().slice(0, 10);
 const currentMonth = todayIso.slice(0, 7);
@@ -44,7 +45,20 @@ const els = {
   workerStatus: document.getElementById("workerStatus"),
   workersTable: document.getElementById("workersTable"),
   workerSearch: document.getElementById("workerSearch"),
+  workerDepartmentFilter: document.getElementById("workerDepartmentFilter"),
   cancelWorkerEdit: document.getElementById("cancelWorkerEdit"),
+  attendanceForm: document.getElementById("attendanceForm"),
+  attendanceId: document.getElementById("attendanceId"),
+  attendanceWorker: document.getElementById("attendanceWorker"),
+  attendanceDate: document.getElementById("attendanceDate"),
+  attendanceStatus: document.getElementById("attendanceStatus"),
+  attendanceHours: document.getElementById("attendanceHours"),
+  attendanceNotes: document.getElementById("attendanceNotes"),
+  cancelAttendanceEdit: document.getElementById("cancelAttendanceEdit"),
+  attendanceFilterWorker: document.getElementById("attendanceFilterWorker"),
+  attendanceFilterMonth: document.getElementById("attendanceFilterMonth"),
+  attendanceFilterStatus: document.getElementById("attendanceFilterStatus"),
+  attendanceTable: document.getElementById("attendanceTable"),
   rateForm: document.getElementById("rateForm"),
   rateFormTitle: document.getElementById("rateFormTitle"),
   rateId: document.getElementById("rateId"),
@@ -72,8 +86,10 @@ const els = {
   metricMonthPayroll: document.getElementById("metricMonthPayroll"),
   metricActiveRates: document.getElementById("metricActiveRates"),
   metricMonthCredits: document.getElementById("metricMonthCredits"),
+  metricMonthLoans: document.getElementById("metricMonthLoans"),
   payrollSnapshot: document.getElementById("payrollSnapshot"),
   payrollMonth: document.getElementById("payrollMonth"),
+  payrollDepartmentFilter: document.getElementById("payrollDepartmentFilter"),
   runPayrollBtn: document.getElementById("runPayrollBtn"),
   printPayrollBtn: document.getElementById("printPayrollBtn"),
   payrollTable: document.getElementById("payrollTable"),
@@ -97,7 +113,31 @@ const els = {
   creditFilterMonth: document.getElementById("creditFilterMonth"),
   creditFilterStatus: document.getElementById("creditFilterStatus"),
   creditsTable: document.getElementById("creditsTable"),
+  creditBalances: document.getElementById("creditBalances"),
   creditReport: document.getElementById("creditReport"),
+  loanForm: document.getElementById("loanForm"),
+  loanId: document.getElementById("loanId"),
+  loanWorker: document.getElementById("loanWorker"),
+  loanDate: document.getElementById("loanDate"),
+  loanType: document.getElementById("loanType"),
+  loanAmount: document.getElementById("loanAmount"),
+  loanMonthlyDeduction: document.getElementById("loanMonthlyDeduction"),
+  loanStartMonth: document.getElementById("loanStartMonth"),
+  loanStatus: document.getElementById("loanStatus"),
+  loanNotes: document.getElementById("loanNotes"),
+  cancelLoanEdit: document.getElementById("cancelLoanEdit"),
+  loanFilterWorker: document.getElementById("loanFilterWorker"),
+  loanFilterStatus: document.getElementById("loanFilterStatus"),
+  loansTable: document.getElementById("loansTable"),
+  departmentReport: document.getElementById("departmentReport"),
+  attendanceReport: document.getElementById("attendanceReport"),
+  settingsForm: document.getElementById("settingsForm"),
+  settingsFarmName: document.getElementById("settingsFarmName"),
+  settingsCurrency: document.getElementById("settingsCurrency"),
+  settingsLogo: document.getElementById("settingsLogo"),
+  clearLogoBtn: document.getElementById("clearLogoBtn"),
+  settingsFarmNamePreview: document.getElementById("settingsFarmNamePreview"),
+  settingsLogoPreview: document.getElementById("settingsLogoPreview"),
   accountForm: document.getElementById("accountForm"),
   accountName: document.getElementById("accountName"),
   accountUsername: document.getElementById("accountUsername"),
@@ -111,9 +151,13 @@ els.workDate.value = todayIso;
 els.payrollMonth.value = currentMonth;
 els.creditDate.value = todayIso;
 els.creditMonth.value = currentMonth;
+els.attendanceDate.value = todayIso;
+els.attendanceFilterMonth.value = currentMonth;
+els.loanDate.value = todayIso;
+els.loanStartMonth.value = currentMonth;
 
 function loadState() {
-  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], users: [] };
+  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
   try {
     const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY)) || fallback;
     return {
@@ -125,6 +169,9 @@ function loadState() {
       deductions: loaded.deductions || [],
       credits: loaded.credits || [],
       users: loaded.users || [],
+      attendance: loaded.attendance || [],
+      loans: loaded.loans || [],
+      settings: { ...DEFAULT_SETTINGS, ...(loaded.settings || {}) },
     };
   } catch {
     return fallback;
@@ -163,7 +210,7 @@ async function syncToServer() {
 }
 
 function mergeState(nextState) {
-  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], users: [] };
+  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
   Object.assign(state, {
     ...fallback,
     ...nextState,
@@ -173,6 +220,9 @@ function mergeState(nextState) {
     deductions: nextState.deductions || [],
     credits: nextState.credits || [],
     users: nextState.users || [],
+    attendance: nextState.attendance || [],
+    loans: nextState.loans || [],
+    settings: { ...DEFAULT_SETTINGS, ...(nextState.settings || {}) },
   });
 }
 
@@ -217,7 +267,20 @@ function id(prefix) {
 }
 
 function money(value) {
-  return Number(value || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
+  return Number(value || 0).toLocaleString("en-US", { style: "currency", currency: state.settings.currency || "USD" });
+}
+
+function monthIndex(month) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return (year * 12) + monthNumber;
+}
+
+function uniqueDepartments() {
+  return [...new Set(state.workers.map((worker) => worker.department).filter(Boolean))].sort();
+}
+
+function workerMatchesDepartment(worker, department) {
+  return !department || worker.department === department;
 }
 
 function employeeNumber() {
@@ -251,15 +314,21 @@ function setView(viewId) {
 function renderAll() {
   renderAuth();
   renderRoleAccess();
+  renderDepartmentFilters();
   renderWorkers();
+  renderAttendanceOptions();
+  renderAttendance();
   renderRates();
   renderWorkOptions();
   renderCreditOptions();
   renderWorkRecords();
   renderCredits();
+  renderLoanOptions();
+  renderLoans();
   renderPayroll();
   renderDashboard();
   renderReports();
+  renderSettings();
   renderAccounts();
 }
 
@@ -282,20 +351,35 @@ function renderRoleAccess() {
   const isSupervisor = role === "supervisor";
   document.querySelector('[data-view="rates"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="credits"]').classList.toggle("hidden-for-role", isSupervisor);
+  document.querySelector('[data-view="loans"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="payroll"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="reports"]').classList.toggle("hidden-for-role", isSupervisor);
+  document.querySelector('[data-view="settings"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="accounts"]').classList.toggle("hidden-for-role", isSupervisor);
   els.seedDataBtn.disabled = isSupervisor;
   els.clearDataBtn.disabled = isSupervisor;
-  if (isSupervisor && ["rates", "credits", "payroll", "reports", "accounts"].includes(document.querySelector(".view.active")?.id)) {
+  if (isSupervisor && ["rates", "credits", "loans", "payroll", "reports", "settings", "accounts"].includes(document.querySelector(".view.active")?.id)) {
     setView("work-register");
   }
 }
 
+function renderDepartmentFilters() {
+  const options = `<option value="">All departments</option>${uniqueDepartments().map((department) => `
+    <option value="${department}">${department}</option>
+  `).join("")}`;
+  const workerValue = els.workerDepartmentFilter.value;
+  const payrollValue = els.payrollDepartmentFilter.value;
+  els.workerDepartmentFilter.innerHTML = options;
+  els.payrollDepartmentFilter.innerHTML = options;
+  els.workerDepartmentFilter.value = workerValue;
+  els.payrollDepartmentFilter.value = payrollValue;
+}
+
 function renderWorkers() {
   const query = els.workerSearch.value.trim().toLowerCase();
+  const department = els.workerDepartmentFilter.value;
   const workers = state.workers.filter((worker) => {
-    return [worker.employeeNumber, worker.fullName, worker.department, worker.position, worker.nationalId]
+    return workerMatchesDepartment(worker, department) && [worker.employeeNumber, worker.fullName, worker.department, worker.position, worker.nationalId]
       .join(" ")
       .toLowerCase()
       .includes(query);
@@ -359,6 +443,18 @@ function renderCreditOptions() {
   `).join("");
 }
 
+function renderAttendanceOptions() {
+  els.attendanceWorker.innerHTML = activeWorkers().map((worker) => `
+    <option value="${worker.id}">${worker.employeeNumber} - ${worker.fullName}</option>
+  `).join("");
+}
+
+function renderLoanOptions() {
+  els.loanWorker.innerHTML = activeWorkers().map((worker) => `
+    <option value="${worker.id}">${worker.employeeNumber} - ${worker.fullName}</option>
+  `).join("");
+}
+
 function renderWorkRecords() {
   const workerQuery = els.workFilterWorker.value.trim().toLowerCase();
   const dateQuery = els.workFilterDate.value;
@@ -384,6 +480,38 @@ function renderWorkRecords() {
       </tr>
     `;
   }).join("") || emptyRow(6, "No work records match this filter.");
+}
+
+function renderAttendance() {
+  const workerQuery = els.attendanceFilterWorker.value.trim().toLowerCase();
+  const monthQuery = els.attendanceFilterMonth.value;
+  const statusQuery = els.attendanceFilterStatus.value;
+  const rows = state.attendance.filter((record) => {
+    const worker = getWorker(record.workerId);
+    const workerText = `${worker?.fullName || ""} ${worker?.employeeNumber || ""}`.toLowerCase();
+    return (!workerQuery || workerText.includes(workerQuery))
+      && (!monthQuery || record.date.startsWith(monthQuery))
+      && (!statusQuery || record.status === statusQuery);
+  }).sort((a, b) => b.date.localeCompare(a.date));
+
+  els.attendanceTable.innerHTML = rows.map((record) => {
+    const worker = getWorker(record.workerId);
+    return `
+      <tr>
+        <td>${record.date}</td>
+        <td>${worker ? `${worker.employeeNumber}<br /><strong>${worker.fullName}</strong>` : "Deleted worker"}</td>
+        <td><span class="status ${record.status === "present" ? "active" : "inactive"}">${record.status}</span></td>
+        <td>${record.hours || 0}</td>
+        <td>${record.notes || ""}</td>
+        <td>
+          <div class="row-actions">
+            <button type="button" data-edit-attendance="${record.id}">Edit</button>
+            <button class="danger-button" type="button" data-delete-attendance="${record.id}">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("") || emptyRow(6, "No attendance records found.");
 }
 
 function renderCredits() {
@@ -417,6 +545,50 @@ function renderCredits() {
       </tr>
     `;
   }).join("") || emptyRow(7, "No grocery credits recorded.");
+
+  const balances = creditBalances();
+  els.creditBalances.innerHTML = balances.map((row) => summaryRow(row.workerLabel, money(row.balance))).join("") || emptySummary("No outstanding grocery credit balances.");
+}
+
+function creditBalances() {
+  return state.workers.map((worker) => {
+    const balance = state.credits
+      .filter((credit) => credit.workerId === worker.id && credit.status !== "deducted")
+      .reduce((sum, credit) => sum + Number(credit.amount), 0);
+    return { workerLabel: `${worker.employeeNumber} - ${worker.fullName}`, balance };
+  }).filter((row) => row.balance > 0).sort((a, b) => b.balance - a.balance);
+}
+
+function renderLoans() {
+  const workerQuery = els.loanFilterWorker.value.trim().toLowerCase();
+  const statusQuery = els.loanFilterStatus.value;
+  const rows = state.loans.filter((loan) => {
+    const worker = getWorker(loan.workerId);
+    const workerText = `${worker?.fullName || ""} ${worker?.employeeNumber || ""}`.toLowerCase();
+    return (!workerQuery || workerText.includes(workerQuery))
+      && (!statusQuery || loan.status === statusQuery);
+  }).sort((a, b) => b.date.localeCompare(a.date));
+
+  els.loansTable.innerHTML = rows.map((loan) => {
+    const worker = getWorker(loan.workerId);
+    return `
+      <tr>
+        <td>${loan.date}</td>
+        <td>${worker ? `${worker.employeeNumber}<br /><strong>${worker.fullName}</strong>` : "Deleted worker"}</td>
+        <td>${loan.type}</td>
+        <td>${money(loan.amount)}</td>
+        <td>${money(loan.monthlyDeduction)}</td>
+        <td><strong>${money(loanBalance(loan))}</strong></td>
+        <td><span class="status ${loan.status}">${loan.status}</span></td>
+        <td>
+          <div class="row-actions">
+            <button type="button" data-edit-loan="${loan.id}">Edit</button>
+            <button class="danger-button" type="button" data-delete-loan="${loan.id}">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("") || emptyRow(8, "No loans or advances recorded.");
 }
 
 function renderDashboard() {
@@ -425,12 +597,14 @@ function renderDashboard() {
     .reduce((sum, record) => sum + Number(record.total), 0);
   const monthPayroll = payrollForMonth(currentMonth).reduce((sum, row) => sum + row.net, 0);
   const monthCredits = creditsForMonth(currentMonth).reduce((sum, credit) => sum + Number(credit.amount), 0);
+  const monthLoans = state.loans.reduce((sum, loan) => sum + loanDeductionForMonth(loan, currentMonth), 0);
 
   els.metricActiveWorkers.textContent = activeWorkers().length;
   els.metricTodayCost.textContent = money(todayCost);
   els.metricMonthPayroll.textContent = money(monthPayroll);
   els.metricActiveRates.textContent = activeRates().length;
   els.metricMonthCredits.textContent = money(monthCredits);
+  els.metricMonthLoans.textContent = money(monthLoans);
 
   els.recentWorkTable.innerHTML = [...state.workRecords]
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -473,7 +647,10 @@ function payrollForMonth(month) {
       deductions,
       net: Math.max(gross - deductions.total, 0),
     };
-  }).filter((row) => row.gross > 0 || row.deductions.total > 0);
+  }).filter((row) => {
+    return workerMatchesDepartment(row.worker, els.payrollDepartmentFilter.value)
+      && (row.gross > 0 || row.deductions.total > 0);
+  });
 }
 
 function calculateDeductions(workerId, month, gross) {
@@ -483,12 +660,35 @@ function calculateDeductions(workerId, month, gross) {
     .reduce((sum, item) => sum + Number(item.amount), 0);
   const credits = creditsForWorkerMonth(workerId, month)
     .reduce((sum, credit) => sum + Number(credit.amount), 0);
+  const loans = state.loans
+    .filter((loan) => loan.workerId === workerId)
+    .reduce((sum, loan) => sum + loanDeductionForMonth(loan, month), 0);
   return {
     nssa,
     manual,
     credits,
-    total: nssa + manual + credits,
+    loans,
+    total: nssa + manual + credits + loans,
   };
+}
+
+function loanDeductionForMonth(loan, month) {
+  if (loan.status !== "active") return 0;
+  if (monthIndex(month) < monthIndex(loan.startMonth)) return 0;
+  const paidBefore = loanPaidBeforeMonth(loan, month);
+  const remaining = Math.max(Number(loan.amount) - paidBefore, 0);
+  return Math.min(Number(loan.monthlyDeduction), remaining);
+}
+
+function loanPaidBeforeMonth(loan, month) {
+  if (monthIndex(month) <= monthIndex(loan.startMonth)) return 0;
+  const elapsedMonths = monthIndex(month) - monthIndex(loan.startMonth);
+  return Math.min(Number(loan.amount), elapsedMonths * Number(loan.monthlyDeduction));
+}
+
+function loanBalance(loan) {
+  const paidThroughCurrentMonth = loanPaidBeforeMonth(loan, currentMonth) + loanDeductionForMonth(loan, currentMonth);
+  return Math.max(Number(loan.amount) - paidThroughCurrentMonth, 0);
 }
 
 function creditsForMonth(month) {
@@ -510,11 +710,12 @@ function renderPayroll() {
       <td>${row.worker.fullName}</td>
       <td>${money(row.gross)}</td>
       <td>${money(row.deductions.credits)}</td>
+      <td>${money(row.deductions.loans)}</td>
       <td>${money(row.deductions.total)}</td>
       <td><strong>${money(row.net)}</strong></td>
       <td><button type="button" data-payslip="${row.worker.id}">View</button></td>
     </tr>
-  `).join("") || emptyRow(7, "No payroll records for this month.");
+  `).join("") || emptyRow(8, "No payroll records for this month.");
 }
 
 function renderPayslip(workerId) {
@@ -526,7 +727,8 @@ function renderPayslip(workerId) {
     <article class="payslip">
       <div class="payslip-head">
         <div>
-          <h3>${FARM_NAME}</h3>
+          ${state.settings.logoDataUrl ? `<img class="payslip-logo" src="${state.settings.logoDataUrl}" alt="${state.settings.farmName} logo" />` : ""}
+          <h3>${state.settings.farmName || FARM_NAME}</h3>
           <p>Monthly Payslip</p>
         </div>
         <div>
@@ -568,6 +770,7 @@ function renderPayslip(workerId) {
         <div><span>Gross pay</span><strong>${money(row.gross)}</strong></div>
         <div><span>NSSA</span><strong>${money(row.deductions.nssa)}</strong></div>
         <div><span>Grocery credits</span><strong>${money(row.deductions.credits)}</strong></div>
+        <div><span>Loans / advances</span><strong>${money(row.deductions.loans)}</strong></div>
         <div><span>Other deductions</span><strong>${money(row.deductions.manual)}</strong></div>
         <div class="net-pay"><span>Net pay</span><strong>${money(row.net)}</strong></div>
       </div>
@@ -620,6 +823,17 @@ function renderReports() {
     value: credits.reduce((sum, credit) => sum + Number(credit.amount), 0),
   })).sort((a, b) => b.label.localeCompare(a.label));
   const groceryTotal = state.credits.reduce((sum, credit) => sum + Number(credit.amount), 0);
+  const departmentRows = uniqueDepartments().map((department) => {
+    const workers = state.workers.filter((worker) => worker.department === department);
+    const total = state.workRecords
+      .filter((record) => workers.some((worker) => worker.id === record.workerId))
+      .reduce((sum, record) => sum + Number(record.total), 0);
+    return { label: department, value: total };
+  }).filter((row) => row.value > 0).sort((a, b) => b.value - a.value);
+  const attendanceRows = groupBy(state.attendance, "status").map(([status, records]) => ({
+    label: status,
+    value: records.length,
+  })).sort((a, b) => b.value - a.value);
 
   els.dailyReport.innerHTML = daily.map((row) => summaryRow(row.label, money(row.value))).join("") || emptySummary("No daily costs yet.");
   els.productivityReport.innerHTML = productivity.map((row) => summaryRow(row.label, `${row.value} units | ${money(row.total)}`)).join("") || emptySummary("No productivity records yet.");
@@ -628,6 +842,8 @@ function renderReports() {
     groceryTotal > 0 ? summaryRow("Groceries issued on credit", money(groceryTotal)) : "",
   ].join("") || emptySummary("No expenses yet.");
   els.creditReport.innerHTML = creditRows.map((row) => summaryRow(row.label, money(row.value))).join("") || emptySummary("No credit deductions yet.");
+  els.departmentReport.innerHTML = departmentRows.map((row) => summaryRow(row.label, money(row.value))).join("") || emptySummary("No department labor costs yet.");
+  els.attendanceReport.innerHTML = attendanceRows.map((row) => summaryRow(row.label, `${row.value} records`)).join("") || emptySummary("No attendance records yet.");
 }
 
 function groupBy(items, key) {
@@ -672,6 +888,20 @@ function resetCreditForm() {
   els.creditMonth.value = currentMonth;
 }
 
+function resetAttendanceForm() {
+  els.attendanceForm.reset();
+  els.attendanceId.value = "";
+  els.attendanceDate.value = todayIso;
+  els.attendanceHours.value = 8;
+}
+
+function resetLoanForm() {
+  els.loanForm.reset();
+  els.loanId.value = "";
+  els.loanDate.value = todayIso;
+  els.loanStartMonth.value = currentMonth;
+}
+
 function renderAccounts() {
   els.accountsTable.innerHTML = state.users.map((user) => `
     <tr>
@@ -681,6 +911,15 @@ function renderAccounts() {
       <td><span class="status ${user.status}">${user.status}</span></td>
     </tr>
   `).join("") || emptyRow(4, "No user accounts created.");
+}
+
+function renderSettings() {
+  els.settingsFarmName.value = state.settings.farmName || FARM_NAME;
+  els.settingsCurrency.value = state.settings.currency || "USD";
+  els.settingsFarmNamePreview.textContent = state.settings.farmName || FARM_NAME;
+  els.settingsLogoPreview.innerHTML = state.settings.logoDataUrl
+    ? `<img src="${state.settings.logoDataUrl}" alt="${state.settings.farmName || FARM_NAME} logo" />`
+    : "No logo uploaded";
 }
 
 function syncSelectedRate() {
@@ -740,6 +979,14 @@ function seedData() {
     { id: id("credit"), workerId: workers[0].id, date: todayIso, payrollMonth: currentMonth, item: "Mealie meal", amount: 12, status: "pending", notes: "Grocery store issue" },
     { id: id("credit"), workerId: workers[2].id, date: `${currentMonth}-06`, payrollMonth: currentMonth, item: "Cooking oil and soap", amount: 9.5, status: "pending", notes: "" },
   ];
+  state.attendance = [
+    { id: id("attendance"), workerId: workers[0].id, date: todayIso, status: "present", hours: 8, notes: "" },
+    { id: id("attendance"), workerId: workers[1].id, date: todayIso, status: "present", hours: 8, notes: "" },
+    { id: id("attendance"), workerId: workers[2].id, date: `${currentMonth}-06`, status: "absent", hours: 0, notes: "Did not report" },
+  ];
+  state.loans = [
+    { id: id("loan"), workerId: workers[1].id, date: todayIso, type: "cash advance", amount: 30, monthlyDeduction: 10, startMonth: currentMonth, status: "active", notes: "" },
+  ];
   state.deductions = [];
   saveState();
   renderAll();
@@ -748,6 +995,24 @@ function seedData() {
 function downloadCsv(filename, rows) {
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadExcel(filename, rows) {
+  const table = `
+    <table>
+      ${rows.map((row, index) => `
+        <tr>${row.map((cell) => index === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`).join("")}</tr>
+      `).join("")}
+    </table>
+  `;
+  const html = `<!doctype html><html><head><meta charset="utf-8" /></head><body>${table}</body></html>`;
+  const blob = new Blob([html], { type: "application/vnd.ms-excel" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -826,6 +1091,8 @@ els.clearDataBtn.addEventListener("click", () => {
   state.rates = [];
   state.workRecords = [];
   state.credits = [];
+  state.attendance = [];
+  state.loans = [];
   state.deductions = [];
   saveState();
   renderAll();
@@ -883,6 +1150,52 @@ els.workersTable.addEventListener("click", (event) => {
 
 els.cancelWorkerEdit.addEventListener("click", resetWorkerForm);
 els.workerSearch.addEventListener("input", renderWorkers);
+els.workerDepartmentFilter.addEventListener("change", renderWorkers);
+
+els.attendanceForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const existing = state.attendance.find((record) => record.id === els.attendanceId.value);
+  const record = {
+    id: existing?.id || id("attendance"),
+    workerId: els.attendanceWorker.value,
+    date: els.attendanceDate.value,
+    status: els.attendanceStatus.value,
+    hours: Number(els.attendanceHours.value || 0),
+    notes: els.attendanceNotes.value.trim(),
+  };
+  if (existing) {
+    Object.assign(existing, record);
+  } else {
+    state.attendance.push(record);
+  }
+  saveState();
+  resetAttendanceForm();
+  renderAll();
+});
+
+els.attendanceTable.addEventListener("click", (event) => {
+  const editId = event.target.dataset.editAttendance;
+  const deleteId = event.target.dataset.deleteAttendance;
+  if (editId) {
+    const record = state.attendance.find((item) => item.id === editId);
+    els.attendanceId.value = record.id;
+    els.attendanceWorker.value = record.workerId;
+    els.attendanceDate.value = record.date;
+    els.attendanceStatus.value = record.status;
+    els.attendanceHours.value = record.hours;
+    els.attendanceNotes.value = record.notes;
+  }
+  if (deleteId && confirm("Delete this attendance record?")) {
+    state.attendance = state.attendance.filter((record) => record.id !== deleteId);
+    saveState();
+    renderAll();
+  }
+});
+
+els.cancelAttendanceEdit.addEventListener("click", resetAttendanceForm);
+[els.attendanceFilterWorker, els.attendanceFilterMonth, els.attendanceFilterStatus].forEach((filter) => {
+  filter.addEventListener("input", renderAttendance);
+});
 
 els.rateForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -974,6 +1287,57 @@ els.cancelCreditEdit.addEventListener("click", resetCreditForm);
   filter.addEventListener("input", renderCredits);
 });
 
+els.loanForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const existing = state.loans.find((loan) => loan.id === els.loanId.value);
+  const loan = {
+    id: existing?.id || id("loan"),
+    workerId: els.loanWorker.value,
+    date: els.loanDate.value,
+    type: els.loanType.value,
+    amount: Number(els.loanAmount.value),
+    monthlyDeduction: Number(els.loanMonthlyDeduction.value),
+    startMonth: els.loanStartMonth.value,
+    status: els.loanStatus.value,
+    notes: els.loanNotes.value.trim(),
+  };
+  if (existing) {
+    Object.assign(existing, loan);
+  } else {
+    state.loans.push(loan);
+  }
+  saveState();
+  resetLoanForm();
+  renderAll();
+});
+
+els.loansTable.addEventListener("click", (event) => {
+  const editId = event.target.dataset.editLoan;
+  const deleteId = event.target.dataset.deleteLoan;
+  if (editId) {
+    const loan = state.loans.find((item) => item.id === editId);
+    els.loanId.value = loan.id;
+    els.loanWorker.value = loan.workerId;
+    els.loanDate.value = loan.date;
+    els.loanType.value = loan.type;
+    els.loanAmount.value = loan.amount;
+    els.loanMonthlyDeduction.value = loan.monthlyDeduction;
+    els.loanStartMonth.value = loan.startMonth;
+    els.loanStatus.value = loan.status;
+    els.loanNotes.value = loan.notes;
+  }
+  if (deleteId && confirm("Delete this loan or advance? It will no longer be deducted from payroll.")) {
+    state.loans = state.loans.filter((loan) => loan.id !== deleteId);
+    saveState();
+    renderAll();
+  }
+});
+
+els.cancelLoanEdit.addEventListener("click", resetLoanForm);
+[els.loanFilterWorker, els.loanFilterStatus].forEach((filter) => {
+  filter.addEventListener("input", renderLoans);
+});
+
 els.accountForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const username = normalizeUsername(els.accountUsername.value);
@@ -1029,6 +1393,7 @@ els.payrollMonth.addEventListener("change", () => {
   renderPayroll();
   renderDashboard();
 });
+els.payrollDepartmentFilter.addEventListener("change", renderPayroll);
 els.runPayrollBtn.addEventListener("click", renderPayroll);
 els.payrollTable.addEventListener("click", (event) => {
   const workerId = event.target.dataset.payslip;
@@ -1043,6 +1408,32 @@ els.printPayslipBtn.addEventListener("click", () => {
   els.payslipPanel.classList.add("print-target");
   window.print();
   els.payslipPanel.classList.remove("print-target");
+});
+
+els.settingsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.settings.farmName = els.settingsFarmName.value.trim() || FARM_NAME;
+  state.settings.currency = els.settingsCurrency.value;
+  const file = els.settingsLogo.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.settings.logoDataUrl = reader.result;
+      saveState();
+      renderAll();
+      els.settingsLogo.value = "";
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+  saveState();
+  renderAll();
+});
+
+els.clearLogoBtn.addEventListener("click", () => {
+  state.settings.logoDataUrl = "";
+  saveState();
+  renderAll();
 });
 
 document.querySelectorAll("[data-export]").forEach((button) => {
@@ -1066,11 +1457,52 @@ document.querySelectorAll("[data-export]").forEach((button) => {
         return [credit.date, credit.payrollMonth, worker ? `${worker.employeeNumber} - ${worker.fullName}` : "Deleted worker", credit.item, credit.amount, credit.status];
       })]);
     }
+    if (type === "payroll-excel") {
+      downloadExcel("monthly-payroll.xls", [["Employee No.", "Worker", "Department", "Gross", "Credits", "Loans", "Deductions", "Net"], ...payrollForMonth(els.payrollMonth.value || currentMonth).map((row) => [
+        row.worker.employeeNumber,
+        row.worker.fullName,
+        row.worker.department,
+        row.gross,
+        row.deductions.credits,
+        row.deductions.loans,
+        row.deductions.total,
+        row.net,
+      ])]);
+    }
+    if (type === "attendance-excel") {
+      downloadExcel("attendance-records.xls", [["Date", "Worker", "Status", "Hours", "Notes"], ...state.attendance.map((record) => {
+        const worker = getWorker(record.workerId);
+        return [record.date, worker ? `${worker.employeeNumber} - ${worker.fullName}` : "Deleted worker", record.status, record.hours, record.notes || ""];
+      })]);
+    }
+    if (type === "credit-balances-excel") {
+      downloadExcel("credit-balances.xls", [["Worker", "Outstanding Balance"], ...creditBalances().map((row) => [row.workerLabel, row.balance])]);
+    }
+    if (type === "loans-excel") {
+      downloadExcel("loans-and-advances.xls", [["Date", "Worker", "Type", "Total", "Monthly Deduction", "Balance", "Status"], ...state.loans.map((loan) => {
+        const worker = getWorker(loan.workerId);
+        return [loan.date, worker ? `${worker.employeeNumber} - ${worker.fullName}` : "Deleted worker", loan.type, loan.amount, loan.monthlyDeduction, loanBalance(loan), loan.status];
+      })]);
+    }
+    if (type === "department-excel") {
+      downloadExcel("department-labor.xls", [["Department", "Labor Cost"], ...uniqueDepartments().map((department) => {
+        const workers = state.workers.filter((worker) => worker.department === department);
+        const total = state.workRecords
+          .filter((record) => workers.some((worker) => worker.id === record.workerId))
+          .reduce((sum, record) => sum + Number(record.total), 0);
+        return [department, total];
+      })]);
+    }
+    if (type === "attendance-summary-excel") {
+      downloadExcel("attendance-summary.xls", [["Status", "Records"], ...groupBy(state.attendance, "status").map(([status, records]) => [status, records.length])]);
+    }
   });
 });
 
 resetWorkerForm();
 resetRateForm();
 resetCreditForm();
+resetAttendanceForm();
+resetLoanForm();
 renderAll();
 syncFromServer();

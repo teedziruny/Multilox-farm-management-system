@@ -62,11 +62,14 @@
         <nav class="nav" aria-label="Main navigation">
           <button class="nav-button active" data-view="dashboard">Dashboard</button>
           <button class="nav-button" data-view="workers">Workers</button>
+          <button class="nav-button" data-view="attendance">Attendance</button>
           <button class="nav-button" data-view="work-register">Work Register</button>
           <button class="nav-button" data-view="rates">Work Rates</button>
           <button class="nav-button" data-view="credits">Credits</button>
+          <button class="nav-button" data-view="loans">Loans</button>
           <button class="nav-button" data-view="payroll">Payroll</button>
           <button class="nav-button" data-view="reports">Reports</button>
+          <button class="nav-button" data-view="settings">Settings</button>
           <button class="nav-button" data-view="accounts">Accounts</button>
         </nav>
         <div class="role-card">
@@ -114,6 +117,10 @@
             <div class="metric-card">
               <span>This month credits</span>
               <strong id="metricMonthCredits">$0.00</strong>
+            </div>
+            <div class="metric-card">
+              <span>This month loans</span>
+              <strong id="metricMonthLoans">$0.00</strong>
             </div>
           </div>
 
@@ -184,7 +191,10 @@
             <section class="panel">
               <div class="panel-header">
                 <h2>Workers</h2>
-                <input class="search-input" id="workerSearch" placeholder="Search workers" />
+                <div class="inline-controls">
+                  <input class="search-input" id="workerSearch" placeholder="Search workers" />
+                  <select id="workerDepartmentFilter"><option value="">All departments</option></select>
+                </div>
               </div>
               <div class="table-wrap">
                 <table>
@@ -198,6 +208,68 @@
                     </tr>
                   </thead>
                   <tbody id="workersTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="attendance">
+          <div class="split-layout">
+            <form class="panel form-panel" id="attendanceForm">
+              <div class="panel-header">
+                <h2>Record Attendance</h2>
+              </div>
+              <input type="hidden" id="attendanceId" />
+              <div class="form-grid">
+                <label>Worker<select id="attendanceWorker" required></select></label>
+                <label>Date<input id="attendanceDate" type="date" required /></label>
+                <label>Status
+                  <select id="attendanceStatus">
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="sick">Sick</option>
+                    <option value="leave">Leave</option>
+                  </select>
+                </label>
+                <label>Hours worked<input id="attendanceHours" type="number" min="0" step="0.5" value="8" /></label>
+                <label class="wide">Notes<input id="attendanceNotes" /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save attendance</button>
+                <button class="secondary-button" id="cancelAttendanceEdit" type="button">Cancel</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Attendance History</h2>
+                <button class="secondary-button" data-export="attendance-excel">Export Excel</button>
+              </div>
+              <div class="filter-row">
+                <input id="attendanceFilterWorker" placeholder="Worker or employee no." />
+                <input id="attendanceFilterMonth" type="month" />
+                <select id="attendanceFilterStatus">
+                  <option value="">All statuses</option>
+                  <option value="present">Present</option>
+                  <option value="absent">Absent</option>
+                  <option value="sick">Sick</option>
+                  <option value="leave">Leave</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Worker</th>
+                      <th>Status</th>
+                      <th>Hours</th>
+                      <th>Notes</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attendanceTable"></tbody>
                 </table>
               </div>
             </section>
@@ -356,6 +428,81 @@
               </div>
             </section>
           </div>
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Credit Balances</h2>
+              <button class="secondary-button" data-export="credit-balances-excel">Export Excel</button>
+            </div>
+            <div id="creditBalances" class="stack"></div>
+          </section>
+        </section>
+
+        <section class="view" id="loans">
+          <div class="split-layout">
+            <form class="panel form-panel" id="loanForm">
+              <div class="panel-header">
+                <h2>Record Loan or Advance</h2>
+              </div>
+              <input type="hidden" id="loanId" />
+              <div class="form-grid">
+                <label>Worker<select id="loanWorker" required></select></label>
+                <label>Date issued<input id="loanDate" type="date" required /></label>
+                <label>Loan type
+                  <select id="loanType">
+                    <option value="cash advance">Cash advance</option>
+                    <option value="loan">Loan</option>
+                    <option value="penalty">Penalty</option>
+                  </select>
+                </label>
+                <label>Total amount<input id="loanAmount" type="number" min="0" step="0.01" required /></label>
+                <label>Monthly deduction<input id="loanMonthlyDeduction" type="number" min="0" step="0.01" required /></label>
+                <label>Start month<input id="loanStartMonth" type="month" required /></label>
+                <label>Status
+                  <select id="loanStatus">
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </label>
+                <label class="wide">Notes<input id="loanNotes" /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save loan</button>
+                <button class="secondary-button" id="cancelLoanEdit" type="button">Cancel</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Loan Records</h2>
+                <button class="secondary-button" data-export="loans-excel">Export Excel</button>
+              </div>
+              <div class="filter-row">
+                <input id="loanFilterWorker" placeholder="Worker or employee no." />
+                <select id="loanFilterStatus">
+                  <option value="">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Worker</th>
+                      <th>Type</th>
+                      <th>Total</th>
+                      <th>Monthly</th>
+                      <th>Balance</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="loansTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         </section>
 
         <section class="view" id="payroll">
@@ -364,8 +511,10 @@
               <h2>Run Payroll</h2>
               <div class="inline-controls">
                 <input id="payrollMonth" type="month" />
+                <select id="payrollDepartmentFilter"><option value="">All departments</option></select>
                 <button id="runPayrollBtn" type="button">Calculate</button>
                 <button class="secondary-button" id="printPayrollBtn" type="button">Print summary</button>
+                <button class="secondary-button" data-export="payroll-excel" type="button">Export Excel</button>
               </div>
             </div>
             <div class="table-wrap">
@@ -376,6 +525,7 @@
                     <th>Worker</th>
                     <th>Gross pay</th>
                     <th>Credits</th>
+                    <th>Loans</th>
                     <th>Deductions</th>
                     <th>Net pay</th>
                     <th>Payslip</th>
@@ -426,6 +576,55 @@
                 <button class="secondary-button" data-export="credits">Export CSV</button>
               </div>
               <div id="creditReport" class="stack"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Department Labor</h2>
+                <button class="secondary-button" data-export="department-excel">Export Excel</button>
+              </div>
+              <div id="departmentReport" class="stack"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Attendance Summary</h2>
+                <button class="secondary-button" data-export="attendance-summary-excel">Export Excel</button>
+              </div>
+              <div id="attendanceReport" class="stack"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="settings">
+          <div class="split-layout">
+            <form class="panel form-panel" id="settingsForm">
+              <div class="panel-header">
+                <h2>Company Settings</h2>
+              </div>
+              <div class="form-grid">
+                <label>Farm name<input id="settingsFarmName" required /></label>
+                <label>Payroll currency
+                  <select id="settingsCurrency">
+                    <option value="USD">USD</option>
+                    <option value="ZWL">ZWL</option>
+                    <option value="ZAR">ZAR</option>
+                  </select>
+                </label>
+                <label class="wide">Payslip logo<input id="settingsLogo" type="file" accept="image/*" /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save settings</button>
+                <button class="secondary-button" id="clearLogoBtn" type="button">Remove logo</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Payslip Branding</h2>
+              </div>
+              <div class="stack">
+                <div class="summary-row"><span>Farm name</span><strong id="settingsFarmNamePreview">Multilox</strong></div>
+                <div class="logo-preview" id="settingsLogoPreview">No logo uploaded</div>
+              </div>
             </section>
           </div>
         </section>
