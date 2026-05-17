@@ -1,0 +1,13 @@
+{
+  "name": "multilox-farm-management-mvp",
+  "version": "1.0.0",
+  "description": "Web-based Multilox Farm Management System MVP with shared server data.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

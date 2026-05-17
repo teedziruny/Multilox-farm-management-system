@@ -1,0 +1,18 @@
+{
+  "workers": [],
+  "rates": [],
+  "workRecords": [],
+  "deductions": [],
+  "credits": [],
+  "users": [
+    {
+      "id": "user-1779032346504-cc91f6386d5cd8",
+      "name": "Multilox Investments",
+      "username": "multilox",
+      "passwordHash": "571058235",
+      "role": "admin",
+      "status": "active",
+      "createdAt": "2026-05-17T15:39:06.505Z"
+    }
+  ]
+}

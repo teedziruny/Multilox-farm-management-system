@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multilox Farm Management System MVP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <form class="login-card" id="loginForm">
+        <div class="brand login-brand">
+          <div class="brand-mark">ML</div>
+          <div>
+            <strong>Multilox</strong>
+            <span>Farm Management System</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Secure access</p>
+          <h1>Sign in</h1>
+        </div>
+        <label>Username<input id="loginUsername" autocomplete="username" required /></label>
+        <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+        <p class="login-error" id="loginError" role="alert"></p>
+        <button type="submit">Log in</button>
+      </form>
+
+      <form class="login-card app-hidden" id="setupForm">
+        <div class="brand login-brand">
+          <div class="brand-mark">ML</div>
+          <div>
+            <strong>Multilox</strong>
+            <span>Farm Management System</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">First admin account</p>
+          <h1>Create account</h1>
+        </div>
+        <label>Full name<input id="setupName" autocomplete="name" required /></label>
+        <label>Username<input id="setupUsername" autocomplete="username" required /></label>
+        <label>Password<input id="setupPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
+        <label>Confirm password<input id="setupConfirmPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
+        <p class="login-error" id="setupError" role="alert"></p>
+        <button type="submit">Create admin account</button>
+        <div class="credential-hint">
+          <span>This creates the first Multilox admin account on this browser.</span>
+        </div>
+      </form>
+    </section>
+
+    <div class="app-shell app-hidden" id="appShell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">ML</div>
+          <div>
+            <strong>Multilox</strong>
+            <span>Commercial farm MVP</span>
+          </div>
+        </div>
+        <nav class="nav" aria-label="Main navigation">
+          <button class="nav-button active" data-view="dashboard">Dashboard</button>
+          <button class="nav-button" data-view="workers">Workers</button>
+          <button class="nav-button" data-view="work-register">Work Register</button>
+          <button class="nav-button" data-view="rates">Work Rates</button>
+          <button class="nav-button" data-view="credits">Credits</button>
+          <button class="nav-button" data-view="payroll">Payroll</button>
+          <button class="nav-button" data-view="reports">Reports</button>
+          <button class="nav-button" data-view="accounts">Accounts</button>
+        </nav>
+        <div class="role-card">
+          <span>Signed in as</span>
+          <strong id="currentUserLabel">Not signed in</strong>
+          <label for="roleSelect">Role</label>
+          <select id="roleSelect">
+            <option value="admin">Admin</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+          <button class="logout-button" id="logoutBtn" type="button">Log out</button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Web based farm operations</p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-button" id="seedDataBtn" type="button">Load sample data</button>
+            <button class="ghost-button" id="clearDataBtn" type="button">Reset data</button>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboard">
+          <div class="metric-grid">
+            <div class="metric-card">
+              <span>Active workers</span>
+              <strong id="metricActiveWorkers">0</strong>
+            </div>
+            <div class="metric-card">
+              <span>Today labor cost</span>
+              <strong id="metricTodayCost">$0.00</strong>
+            </div>
+            <div class="metric-card">
+              <span>This month payroll</span>
+              <strong id="metricMonthPayroll">$0.00</strong>
+            </div>
+            <div class="metric-card">
+              <span>Active work rates</span>
+              <strong id="metricActiveRates">0</strong>
+            </div>
+            <div class="metric-card">
+              <span>This month credits</span>
+              <strong id="metricMonthCredits">$0.00</strong>
+            </div>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Recent Work</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Worker</th>
+                      <th>Work</th>
+                      <th>Qty</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentWorkTable"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Payroll Snapshot</h2>
+              </div>
+              <div id="payrollSnapshot" class="stack"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="workers">
+          <div class="split-layout">
+            <form class="panel form-panel" id="workerForm">
+              <div class="panel-header">
+                <h2 id="workerFormTitle">Add Worker</h2>
+              </div>
+              <input type="hidden" id="workerId" />
+              <div class="form-grid">
+                <label>Full name<input id="workerFullName" required /></label>
+                <label>National ID<input id="workerNationalId" required /></label>
+                <label>Phone number<input id="workerPhone" /></label>
+                <label>Gender
+                  <select id="workerGender">
+                    <option>Female</option>
+                    <option>Male</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+                <label class="wide">Address<input id="workerAddress" /></label>
+                <label>Department/section<input id="workerDepartment" required /></label>
+                <label>Position/job title<input id="workerPosition" required /></label>
+                <label>Date employed<input id="workerDateEmployed" type="date" required /></label>
+                <label>Status
+                  <select id="workerStatus">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save worker</button>
+                <button class="secondary-button" id="cancelWorkerEdit" type="button">Cancel</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Workers</h2>
+                <input class="search-input" id="workerSearch" placeholder="Search workers" />
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee no.</th>
+                      <th>Name</th>
+                      <th>Department</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="workersTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="work-register">
+          <div class="split-layout">
+            <form class="panel form-panel" id="workForm">
+              <div class="panel-header">
+                <h2>Record Daily Work</h2>
+              </div>
+              <div class="form-grid">
+                <label>Worker<select id="workWorker" required></select></label>
+                <label>Date<input id="workDate" type="date" required /></label>
+                <label>Work type<select id="workType" required></select></label>
+                <label>Quantity completed<input id="workQuantity" type="number" min="0" step="0.01" required /></label>
+                <label>Rate<input id="workRate" type="number" min="0" step="0.01" required /></label>
+                <label>Total earned<input id="workTotal" readonly /></label>
+                <label class="wide">Supervisor comments<input id="workComments" /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save work record</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Work History</h2>
+              </div>
+              <div class="filter-row">
+                <input id="workFilterWorker" placeholder="Worker or employee no." />
+                <input id="workFilterDate" type="date" />
+                <select id="workFilterType"><option value="">All work types</option></select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Worker</th>
+                      <th>Work</th>
+                      <th>Qty</th>
+                      <th>Rate</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="workTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="rates">
+          <div class="split-layout">
+            <form class="panel form-panel" id="rateForm">
+              <div class="panel-header">
+                <h2 id="rateFormTitle">Add Work Rate</h2>
+              </div>
+              <input type="hidden" id="rateId" />
+              <div class="form-grid">
+                <label>Work type<input id="rateWorkType" required /></label>
+                <label>Unit label<input id="rateUnit" placeholder="crate, hectare, day" required /></label>
+                <label>Rate per unit/task<input id="rateAmount" type="number" min="0" step="0.01" required /></label>
+                <label>Status
+                  <select id="rateStatus">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save rate</button>
+                <button class="secondary-button" id="cancelRateEdit" type="button">Cancel</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Rates</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Work type</th>
+                      <th>Unit</th>
+                      <th>Rate</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ratesTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="credits">
+          <div class="split-layout">
+            <form class="panel form-panel" id="creditForm">
+              <div class="panel-header">
+                <h2>Record Grocery Credit</h2>
+              </div>
+              <input type="hidden" id="creditId" />
+              <div class="form-grid">
+                <label>Worker<select id="creditWorker" required></select></label>
+                <label>Date issued<input id="creditDate" type="date" required /></label>
+                <label>Payroll month<input id="creditMonth" type="month" required /></label>
+                <label>Item or description<input id="creditItem" placeholder="Mealie meal, cooking oil, soap" required /></label>
+                <label>Amount<input id="creditAmount" type="number" min="0" step="0.01" required /></label>
+                <label>Status
+                  <select id="creditStatus">
+                    <option value="pending">Pending deduction</option>
+                    <option value="deducted">Deducted</option>
+                  </select>
+                </label>
+                <label class="wide">Notes<input id="creditNotes" /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save credit</button>
+                <button class="secondary-button" id="cancelCreditEdit" type="button">Cancel</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Credit Records</h2>
+              </div>
+              <div class="filter-row">
+                <input id="creditFilterWorker" placeholder="Worker or employee no." />
+                <input id="creditFilterMonth" type="month" />
+                <select id="creditFilterStatus">
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending deduction</option>
+                  <option value="deducted">Deducted</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Worker</th>
+                      <th>Item</th>
+                      <th>Payroll month</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="creditsTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="payroll">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Run Payroll</h2>
+              <div class="inline-controls">
+                <input id="payrollMonth" type="month" />
+                <button id="runPayrollBtn" type="button">Calculate</button>
+                <button class="secondary-button" id="printPayrollBtn" type="button">Print summary</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee no.</th>
+                    <th>Worker</th>
+                    <th>Gross pay</th>
+                    <th>Credits</th>
+                    <th>Deductions</th>
+                    <th>Net pay</th>
+                    <th>Payslip</th>
+                  </tr>
+                </thead>
+                <tbody id="payrollTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel payslip-panel" id="payslipPanel">
+            <div class="panel-header">
+              <h2>Payslip</h2>
+              <div class="inline-controls">
+                <button class="secondary-button" id="printPayslipBtn" type="button">Print / Save PDF</button>
+              </div>
+            </div>
+            <div id="payslipPreview" class="payslip-empty">Select a payroll row to view a payslip.</div>
+          </section>
+        </section>
+
+        <section class="view" id="reports">
+          <div class="report-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Daily Labor Costs</h2>
+                <button class="secondary-button" data-export="daily">Export CSV</button>
+              </div>
+              <div id="dailyReport" class="stack"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Worker Productivity</h2>
+                <button class="secondary-button" data-export="productivity">Export CSV</button>
+              </div>
+              <div id="productivityReport" class="stack"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Total Farm Expenses</h2>
+                <button class="secondary-button" data-export="expenses">Export CSV</button>
+              </div>
+              <div id="expensesReport" class="stack"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Credit Deductions</h2>
+                <button class="secondary-button" data-export="credits">Export CSV</button>
+              </div>
+              <div id="creditReport" class="stack"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="accounts">
+          <div class="split-layout">
+            <form class="panel form-panel" id="accountForm">
+              <div class="panel-header">
+                <h2>Create User Account</h2>
+              </div>
+              <div class="form-grid">
+                <label>Full name<input id="accountName" required /></label>
+                <label>Username<input id="accountUsername" required /></label>
+                <label>Password<input id="accountPassword" type="password" minlength="6" required /></label>
+                <label>Role
+                  <select id="accountRole">
+                    <option value="admin">Admin</option>
+                    <option value="supervisor">Supervisor</option>
+                  </select>
+                </label>
+              </div>
+              <p class="form-message" id="accountMessage"></p>
+              <div class="form-actions">
+                <button type="submit">Create account</button>
+              </div>
+            </form>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h2>User Accounts</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="accountsTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
