@@ -1,15 +1,18 @@
 :root {
-  --bg: #f5f7f2;
+  --bg: #f3f8f0;
   --surface: #ffffff;
-  --surface-soft: #eef4ea;
-  --ink: #172015;
-  --muted: #62705e;
-  --line: #dce5d8;
-  --accent: #2f6f3e;
-  --accent-dark: #214f2d;
+  --surface-soft: #edf7e8;
+  --ink: #101f14;
+  --muted: #637260;
+  --line: #d8e7d2;
+  --accent: #16823a;
+  --accent-dark: #0e5f29;
+  --accent-light: #78c257;
+  --accent-glow: rgba(22, 130, 58, 0.26);
   --warning: #aa5d16;
   --danger: #a83232;
-  --shadow: 0 14px 30px rgba(33, 54, 31, 0.08);
+  --shadow: 0 18px 44px rgba(20, 74, 31, 0.11);
+  --shadow-strong: 0 28px 70px rgba(12, 63, 28, 0.24);
 }
 
 * {
@@ -18,7 +21,9 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at top left, rgba(120, 194, 87, 0.2), transparent 34rem),
+    linear-gradient(135deg, #f4f9f0 0%, #eaf4e6 44%, #f7faf4 100%);
   color: var(--ink);
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
@@ -42,10 +47,18 @@ button {
   cursor: pointer;
   padding: 0 14px;
   font-weight: 700;
+  box-shadow: 0 10px 22px rgba(22, 130, 58, 0.16);
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease, border-color 180ms ease;
 }
 
 button:hover {
   background: var(--accent-dark);
+  box-shadow: 0 14px 28px rgba(22, 130, 58, 0.24);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 button:disabled {
@@ -62,6 +75,14 @@ select {
   background: #fff;
   color: var(--ink);
   padding: 8px 10px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(22, 130, 58, 0.12);
+  outline: none;
 }
 
 label {
@@ -93,6 +114,14 @@ th {
   letter-spacing: 0;
 }
 
+tbody tr {
+  transition: background 140ms ease;
+}
+
+tbody tr:hover {
+  background: #f7fbf4;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -100,24 +129,65 @@ th {
 }
 
 .login-screen {
+  position: relative;
+  isolation: isolate;
   display: grid;
   min-height: 100vh;
   place-items: center;
   padding: 20px;
   background:
-    linear-gradient(rgba(245, 247, 242, 0.9), rgba(245, 247, 242, 0.95)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%23cdddc7' stroke-width='2'%3E%3Cpath d='M0 80h160M80 0v160M0 120c40-30 80-30 160 0M0 40c40 30 80 30 160 0'/%3E%3C/g%3E%3C/svg%3E");
+    linear-gradient(120deg, rgba(8, 55, 24, 0.9), rgba(14, 95, 41, 0.72)),
+    radial-gradient(circle at 20% 15%, rgba(191, 238, 167, 0.5), transparent 28rem),
+    linear-gradient(135deg, #0d381d 0%, #147532 55%, #eaf7df 100%);
+  overflow: hidden;
+}
+
+.login-screen::before,
+.login-screen::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.login-screen::before {
+  background:
+    repeating-linear-gradient(100deg, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 80px),
+    repeating-linear-gradient(12deg, rgba(207, 242, 188, 0.1) 0 1px, transparent 1px 68px);
+  animation: fieldDrift 24s linear infinite;
+}
+
+.login-screen::after {
+  background:
+    radial-gradient(circle at 18% 72%, rgba(140, 214, 106, 0.34), transparent 20rem),
+    radial-gradient(circle at 78% 22%, rgba(230, 255, 214, 0.28), transparent 18rem),
+    linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.2) 45%, transparent 54% 100%);
+  filter: blur(1px);
+  animation: lightSweep 11s ease-in-out infinite alternate;
 }
 
 .login-card {
+  position: relative;
   display: grid;
   gap: 16px;
   width: min(100%, 430px);
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(18px);
   padding: 28px;
+  animation: cardRise 520ms ease both;
+  overflow: hidden;
+}
+
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 4px solid var(--accent-light);
+  pointer-events: none;
 }
 
 .login-brand {
@@ -127,6 +197,7 @@ th {
 .login-card h1 {
   margin: 0;
   font-size: 30px;
+  color: #0f381d;
 }
 
 .login-error {
@@ -164,9 +235,11 @@ th {
   position: sticky;
   top: 0;
   height: 100vh;
-  background: #162318;
+  background:
+    linear-gradient(180deg, #0b2513 0%, #13351d 52%, #0d2414 100%);
   color: #fff;
   padding: 22px;
+  box-shadow: 14px 0 44px rgba(12, 63, 28, 0.16);
 }
 
 .brand {
@@ -182,9 +255,10 @@ th {
   width: 44px;
   height: 44px;
   border-radius: 8px;
-  background: #dcebcf;
-  color: #18341d;
+  background: linear-gradient(135deg, #e6f7d9, #78c257);
+  color: #0d3318;
   font-weight: 900;
+  box-shadow: 0 12px 26px rgba(120, 194, 87, 0.25);
 }
 
 .brand span,
@@ -207,11 +281,26 @@ th {
   background: transparent;
   color: #dbe8d5;
   text-align: left;
+  box-shadow: none;
+  position: relative;
+  overflow: hidden;
 }
 
 .nav-button:hover,
 .nav-button.active {
-  background: #2c4630;
+  background: rgba(120, 194, 87, 0.18);
+  transform: translateX(2px);
+}
+
+.nav-button.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent-light);
 }
 
 .role-card {
@@ -243,6 +332,7 @@ th {
 .main {
   min-width: 0;
   padding: 26px;
+  animation: fadeUp 360ms ease both;
 }
 
 .topbar {
@@ -282,6 +372,7 @@ th {
 .secondary-button {
   background: #e3eadf;
   color: #22351f;
+  box-shadow: none;
 }
 
 .ghost-button:hover,
@@ -296,6 +387,7 @@ th {
 .view.active {
   display: grid;
   gap: 22px;
+  animation: fadeUp 280ms ease both;
 }
 
 .metric-grid {
@@ -310,10 +402,20 @@ th {
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.metric-card:hover,
+.panel:hover {
+  border-color: rgba(22, 130, 58, 0.3);
+  box-shadow: 0 22px 54px rgba(20, 74, 31, 0.14);
 }
 
 .metric-card {
   padding: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 240, 0.96)),
+    radial-gradient(circle at top right, rgba(120, 194, 87, 0.18), transparent 12rem);
 }
 
 .metric-card span {
@@ -326,6 +428,7 @@ th {
   display: block;
   margin-top: 8px;
   font-size: 28px;
+  color: #0f642d;
 }
 
 .content-grid,
@@ -353,6 +456,7 @@ th {
   gap: 14px;
   padding: 16px;
   border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #ffffff, #fbfdf9);
 }
 
 .panel-header h2 {
@@ -450,6 +554,13 @@ th {
   border-radius: 8px;
   padding: 12px;
   background: #fbfcfa;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.summary-row:hover {
+  border-color: rgba(22, 130, 58, 0.3);
+  background: #f7fbf4;
+  transform: translateY(-1px);
 }
 
 .summary-row span {
@@ -535,6 +646,59 @@ th {
   max-width: 150px;
   max-height: 80px;
   object-fit: contain;
+}
+
+@keyframes fieldDrift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  100% {
+    transform: translate3d(-80px, 42px, 0) rotate(1deg);
+  }
+}
+
+@keyframes lightSweep {
+  0% {
+    transform: translate3d(-3%, 2%, 0) scale(1);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate3d(4%, -3%, 0) scale(1.04);
+    opacity: 1;
+  }
+}
+
+@keyframes cardRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .hidden-for-role {
