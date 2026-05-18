@@ -1,11 +1,24 @@
 const http = require("http");
 const fs = require("fs/promises");
 const path = require("path");
+let Pool;
+
+try {
+  ({ Pool } = require("pg"));
+} catch {
+  Pool = null;
+}
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, "data");
 const DATA_FILE = path.join(DATA_DIR, "db.json");
+const DATABASE_URL = process.env.DATABASE_URL;
+const USE_DATABASE = Boolean(DATABASE_URL);
+const pool = USE_DATABASE && Pool ? new Pool({
+  connectionString: DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+}) : null;
 
 const DEFAULT_STATE = {
   workers: [],
@@ -31,37 +44,8 @@ const MIME_TYPES = {
   ".ico": "image/x-icon",
 };
 
-async function ensureDataFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(DATA_FILE);
-  } catch {
-    await fs.writeFile(DATA_FILE, JSON.stringify(DEFAULT_STATE, null, 2));
-  }
-}
-
-async function readState() {
-  await ensureDataFile();
-  const raw = await fs.readFile(DATA_FILE, "utf8");
-  const loaded = JSON.parse(raw || "{}");
+function normalizeState(state = {}) {
   return {
-    ...DEFAULT_STATE,
-    ...loaded,
-    workers: loaded.workers || [],
-    rates: loaded.rates || [],
-    workRecords: loaded.workRecords || [],
-    deductions: loaded.deductions || [],
-    credits: loaded.credits || [],
-    users: loaded.users || [],
-    attendance: loaded.attendance || [],
-    loans: loaded.loans || [],
-    settings: { ...DEFAULT_STATE.settings, ...(loaded.settings || {}) },
-  };
-}
-
-async function writeState(state) {
-  await ensureDataFile();
-  const nextState = {
     ...DEFAULT_STATE,
     ...state,
     workers: Array.isArray(state.workers) ? state.workers : [],
@@ -74,6 +58,66 @@ async function writeState(state) {
     loans: Array.isArray(state.loans) ? state.loans : [],
     settings: { ...DEFAULT_STATE.settings, ...(state.settings || {}) },
   };
+}
+
+async function ensureDatabase() {
+  if (!USE_DATABASE) return;
+  if (!pool) {
+    throw new Error("DATABASE_URL is set, but the pg package is not installed. Run npm install.");
+  }
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_state (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(
+    `INSERT INTO app_state (id, data)
+     VALUES ($1, $2::jsonb)
+     ON CONFLICT (id) DO NOTHING`,
+    ["main", JSON.stringify(DEFAULT_STATE)]
+  );
+}
+
+async function ensureDataFile() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  try {
+    await fs.access(DATA_FILE);
+  } catch {
+    await fs.writeFile(DATA_FILE, JSON.stringify(DEFAULT_STATE, null, 2));
+  }
+}
+
+async function readState() {
+  if (USE_DATABASE) {
+    await ensureDatabase();
+    const result = await pool.query("SELECT data FROM app_state WHERE id = $1", ["main"]);
+    return normalizeState(result.rows[0]?.data || DEFAULT_STATE);
+  }
+
+  await ensureDataFile();
+  const raw = await fs.readFile(DATA_FILE, "utf8");
+  const loaded = JSON.parse(raw || "{}");
+  return normalizeState(loaded);
+}
+
+async function writeState(state) {
+  const nextState = normalizeState(state);
+
+  if (USE_DATABASE) {
+    await ensureDatabase();
+    await pool.query(
+      `INSERT INTO app_state (id, data, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (id)
+       DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+      ["main", JSON.stringify(nextState)]
+    );
+    return nextState;
+  }
+
+  await ensureDataFile();
   await fs.writeFile(DATA_FILE, JSON.stringify(nextState, null, 2));
   return nextState;
 }
@@ -136,7 +180,11 @@ async function serveStatic(request, response) {
 const server = http.createServer(async (request, response) => {
   try {
     if (request.url === "/api/health") {
-      sendJson(response, 200, { ok: true, app: "Multilox Farm Management System" });
+      sendJson(response, 200, {
+        ok: true,
+        app: "Multilox Farm Management System",
+        storage: USE_DATABASE ? "postgresql" : "json-file",
+      });
       return;
     }
 

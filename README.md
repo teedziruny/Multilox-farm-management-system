@@ -34,17 +34,45 @@ The login screen lets users choose:
 - Secondary Admin
 - Supervisor
 
-## Deploy Online
+## Deploy Online With A Cloud Database
 
-Deploy this folder to a Node.js host such as Render, Railway, Fly.io, or a VPS.
+Deploy this folder to a Node.js host such as Render, Railway, Fly.io, or a VPS. For production, use PostgreSQL through the `DATABASE_URL` environment variable.
 
 Use these settings:
 
 - Start command: `npm start`
 - Port: use the host-provided `PORT` environment variable, already supported by `server.js`
-- Persistent storage: mount or configure a persistent disk for the `data` folder
+- Database: set `DATABASE_URL` to your PostgreSQL connection string
 
-Important: if the host uses temporary file storage, `data/db.json` may reset when the app restarts. For a production version, move the data to PostgreSQL or MySQL.
+When `DATABASE_URL` is present, the app stores all farm data in PostgreSQL instead of `data/db.json`. This means code redeploys will not erase workers, accounts, credits, loans, payroll records, or rates.
+
+### Render PostgreSQL Setup
+
+1. In Render, create a new PostgreSQL database.
+2. Copy the database **Internal Database URL**.
+3. Open your Multilox Web Service.
+4. Go to **Environment**.
+5. Add:
+
+```text
+DATABASE_URL=your_internal_database_url
+NODE_ENV=production
+```
+
+6. Redeploy the Web Service.
+7. Open `/api/health` on your deployed app. It should show:
+
+```json
+{
+  "storage": "postgresql"
+}
+```
+
+If `storage` shows `json-file`, the app is not connected to the database yet.
+
+### Before Switching An Existing Live App
+
+If you already entered live data while using `data/db.json`, export or back it up before switching to PostgreSQL. Once `DATABASE_URL` is enabled, the app reads from PostgreSQL.
 
 ## Included
 
@@ -68,7 +96,6 @@ Important: if the host uses temporary file storage, `data/db.json` may reset whe
 
 ## Production Next Steps
 
-- Replace the JSON data file with PostgreSQL or MySQL
 - Add full API endpoints per module
 - Add secure role-based authentication
 - Add supervisor-to-worker assignment rules
