@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Multilox Farm Management System MVP</title>
+    <title>Multilox Farm Management System</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -61,8 +61,8 @@
         </div>
         <label>Full name<input id="setupName" autocomplete="name" required /></label>
         <label>Username<input id="setupUsername" autocomplete="username" required /></label>
-        <label>Password<input id="setupPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
-        <label>Confirm password<input id="setupConfirmPassword" type="password" autocomplete="new-password" minlength="6" required /></label>
+        <label>Password<input id="setupPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <label>Confirm password<input id="setupConfirmPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
         <p class="login-error" id="setupError" role="alert"></p>
         <button type="submit">Create main admin account</button>
         <div class="credential-hint">
@@ -77,7 +77,7 @@
           <div class="brand-mark">ML</div>
           <div>
             <strong>Multilox</strong>
-            <span>Commercial farm MVP</span>
+            <span>Farm Management System</span>
           </div>
         </div>
         <nav class="nav" aria-label="Main navigation">
@@ -660,7 +660,7 @@
               <div class="form-grid">
                 <label>Full name<input id="accountName" required /></label>
                 <label>Username<input id="accountUsername" required /></label>
-                <label>Password<input id="accountPassword" type="password" minlength="6" required /></label>
+                <label>Password<input id="accountPassword" type="password" minlength="8" required /></label>
                 <label>Role
                   <select id="accountRole">
                     <option value="admin">Secondary Admin</option>

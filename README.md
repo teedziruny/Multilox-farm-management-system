@@ -1,6 +1,6 @@
-# Multilox Farm Management System MVP
+# Multilox Farm Management System
 
-A web-based MVP for managing farm workers, daily work records, work rates, payroll calculations, payslips, and basic reports.
+A web-based system for managing farm workers, daily work records, work rates, payroll calculations, payslips, and basic reports.
 
 ## How to Run
 
@@ -22,7 +22,7 @@ On a local farm Wi-Fi network, other devices can open the computer's LAN address
 http://192.168.1.20:3000
 ```
 
-The app now saves shared data through the server in `data/db.json`. Opening `index.html` directly still works as a single-device fallback, but it will not share data across devices.
+The app saves shared data through the server. In production, use PostgreSQL through `DATABASE_URL`.
 
 ## Login Credentials
 
@@ -57,6 +57,7 @@ When `DATABASE_URL` is present, the app stores all farm data in PostgreSQL inste
 ```text
 DATABASE_URL=your_internal_database_url
 NODE_ENV=production
+SESSION_SECRET=a_long_random_secret_value
 ```
 
 6. Redeploy the Web Service.
@@ -69,6 +70,8 @@ NODE_ENV=production
 ```
 
 If `storage` shows `json-file`, the app is not connected to the database yet.
+
+`SESSION_SECRET` should be a long random value. It is used to protect login cookies.
 
 ### Before Switching An Existing Live App
 
@@ -97,7 +100,6 @@ If you already entered live data while using `data/db.json`, export or back it u
 ## Production Next Steps
 
 - Add full API endpoints per module
-- Add secure role-based authentication
+- Split the current shared state endpoint into full module-specific API endpoints
 - Add supervisor-to-worker assignment rules
-- Move user accounts and passwords to a backend with proper password hashing
 - Add server-generated PDFs and Excel exports

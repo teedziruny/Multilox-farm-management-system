@@ -1,6 +1,11 @@
 const STORAGE_KEY = "farm-management-mvp-state";
 const SESSION_KEY = "farm-management-mvp-user";
 const API_STATE_URL = "/api/state";
+const API_SESSION_URL = "/api/session";
+const API_LOGIN_URL = "/api/login";
+const API_LOGOUT_URL = "/api/logout";
+const API_SETUP_URL = "/api/setup";
+const API_ACCOUNTS_URL = "/api/accounts";
 const FARM_NAME = "Multilox";
 const DEFAULT_SETTINGS = { farmName: FARM_NAME, currency: "USD", logoDataUrl: "" };
 
@@ -9,6 +14,7 @@ const currentMonth = todayIso.slice(0, 7);
 
 const state = loadState();
 let currentUser = loadCurrentUser();
+let serverHasMainAdmin = false;
 
 const els = {
   appShell: document.getElementById("appShell"),
@@ -187,7 +193,8 @@ function saveState() {
 
 async function syncFromServer() {
   try {
-    const response = await fetch(API_STATE_URL, { cache: "no-store" });
+    const response = await fetch(API_STATE_URL, { cache: "no-store", credentials: "same-origin" });
+    if (response.status === 401) return false;
     if (!response.ok) return false;
     const serverState = await response.json();
     mergeState(serverState);
@@ -208,10 +215,16 @@ async function syncToServer() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state),
+      credentials: "same-origin",
     });
+    if (response.status === 401) {
+      currentUser = null;
+      clearCurrentUser();
+      renderAll();
+    }
     return response.ok;
   } catch {
-    // If the API is unavailable, local storage keeps the MVP usable on this device.
+    // If the API is unavailable, local storage keeps the system usable on this device.
     return false;
   }
 }
@@ -264,13 +277,18 @@ function clearCurrentUser() {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
-function hashPassword(password) {
-  let hash = 5381;
-  for (let index = 0; index < password.length; index += 1) {
-    hash = ((hash << 5) + hash) + password.charCodeAt(index);
-    hash &= 0xffffffff;
+async function apiPost(url, payload = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    credentials: "same-origin",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
   }
-  return String(hash >>> 0);
+  return data;
 }
 
 function normalizeUsername(username) {
@@ -278,7 +296,7 @@ function normalizeUsername(username) {
 }
 
 function hasAdminAccount() {
-  return state.users.some((user) => user.role === "main-admin" && user.status === "active");
+  return serverHasMainAdmin || state.users.some((user) => user.role === "main-admin" && user.status === "active");
 }
 
 function isSupervisorRole(role) {
@@ -289,6 +307,23 @@ function roleLabel(role) {
   if (role === "main-admin") return "Main Admin";
   if (role === "admin") return "Secondary Admin";
   return "Supervisor";
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function safeClass(value, allowed, fallback = "inactive") {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function safeImageDataUrl(value) {
+  return String(value || "").startsWith("data:image/") ? value : "";
 }
 
 function id(prefix) {
@@ -395,7 +430,7 @@ function renderRoleAccess() {
 
 function renderDepartmentFilters() {
   const options = `<option value="">All departments</option>${uniqueDepartments().map((department) => `
-    <option value="${department}">${department}</option>
+    <option value="${esc(department)}">${esc(department)}</option>
   `).join("")}`;
   const workerValue = els.workerDepartmentFilter.value;
   const payrollValue = els.payrollDepartmentFilter.value;
@@ -417,17 +452,17 @@ function renderWorkers() {
 
   els.workersTable.innerHTML = workers.map((worker) => `
     <tr>
-      <td>${worker.employeeNumber}</td>
+      <td>${esc(worker.employeeNumber)}</td>
       <td>
-        <strong>${worker.fullName}</strong><br />
-        <span>${worker.phone || "No phone"}</span>
+        <strong>${esc(worker.fullName)}</strong><br />
+        <span>${esc(worker.phone || "No phone")}</span>
       </td>
-      <td>${worker.department}<br /><span>${worker.position}</span></td>
-      <td><span class="status ${worker.status}">${worker.status}</span></td>
+      <td>${esc(worker.department)}<br /><span>${esc(worker.position)}</span></td>
+      <td><span class="status ${safeClass(worker.status, ["active", "inactive"])}">${esc(worker.status)}</span></td>
       <td>
         <div class="row-actions">
-          <button type="button" data-edit-worker="${worker.id}">Edit</button>
-          <button class="danger-button" type="button" data-delete-worker="${worker.id}">Delete</button>
+          <button type="button" data-edit-worker="${esc(worker.id)}">Edit</button>
+          <button class="danger-button" type="button" data-delete-worker="${esc(worker.id)}">Delete</button>
         </div>
       </td>
     </tr>
@@ -437,14 +472,14 @@ function renderWorkers() {
 function renderRates() {
   els.ratesTable.innerHTML = state.rates.map((rate) => `
     <tr>
-      <td>${rate.workType}</td>
-      <td>${rate.unit}</td>
+      <td>${esc(rate.workType)}</td>
+      <td>${esc(rate.unit)}</td>
       <td>${money(rate.amount)}</td>
-      <td><span class="status ${rate.status}">${rate.status}</span></td>
+      <td><span class="status ${safeClass(rate.status, ["active", "inactive"])}">${esc(rate.status)}</span></td>
       <td>
         <div class="row-actions">
-          <button type="button" data-edit-rate="${rate.id}">Edit</button>
-          <button class="danger-button" type="button" data-delete-rate="${rate.id}">Delete</button>
+          <button type="button" data-edit-rate="${esc(rate.id)}">Edit</button>
+          <button class="danger-button" type="button" data-delete-rate="${esc(rate.id)}">Delete</button>
         </div>
       </td>
     </tr>
@@ -453,15 +488,15 @@ function renderRates() {
 
 function renderWorkOptions() {
   els.workWorker.innerHTML = activeWorkers().map((worker) => `
-    <option value="${worker.id}">${worker.employeeNumber} - ${worker.fullName}</option>
+    <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
 
   const activeRateOptions = activeRates().map((rate) => `
-    <option value="${rate.id}">${rate.workType} (${money(rate.amount)} / ${rate.unit})</option>
+    <option value="${esc(rate.id)}">${esc(rate.workType)} (${money(rate.amount)} / ${esc(rate.unit)})</option>
   `).join("");
   els.workType.innerHTML = activeRateOptions;
   els.workFilterType.innerHTML = `<option value="">All work types</option>${state.rates.map((rate) => `
-    <option value="${rate.workType}">${rate.workType}</option>
+    <option value="${esc(rate.workType)}">${esc(rate.workType)}</option>
   `).join("")}`;
 
   syncSelectedRate();
@@ -469,19 +504,19 @@ function renderWorkOptions() {
 
 function renderCreditOptions() {
   els.creditWorker.innerHTML = activeWorkers().map((worker) => `
-    <option value="${worker.id}">${worker.employeeNumber} - ${worker.fullName}</option>
+    <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
 }
 
 function renderAttendanceOptions() {
   els.attendanceWorker.innerHTML = activeWorkers().map((worker) => `
-    <option value="${worker.id}">${worker.employeeNumber} - ${worker.fullName}</option>
+    <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
 }
 
 function renderLoanOptions() {
   els.loanWorker.innerHTML = activeWorkers().map((worker) => `
-    <option value="${worker.id}">${worker.employeeNumber} - ${worker.fullName}</option>
+    <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
 }
 
@@ -501,10 +536,10 @@ function renderWorkRecords() {
     const worker = getWorker(record.workerId);
     return `
       <tr>
-        <td>${record.date}</td>
-        <td>${worker ? `${worker.employeeNumber}<br /><strong>${worker.fullName}</strong>` : "Deleted worker"}</td>
-        <td>${record.workType}</td>
-        <td>${record.quantity}</td>
+        <td>${esc(record.date)}</td>
+        <td>${worker ? `${esc(worker.employeeNumber)}<br /><strong>${esc(worker.fullName)}</strong>` : "Deleted worker"}</td>
+        <td>${esc(record.workType)}</td>
+        <td>${esc(record.quantity)}</td>
         <td>${money(record.rate)}</td>
         <td><strong>${money(record.total)}</strong></td>
       </tr>
@@ -528,15 +563,15 @@ function renderAttendance() {
     const worker = getWorker(record.workerId);
     return `
       <tr>
-        <td>${record.date}</td>
-        <td>${worker ? `${worker.employeeNumber}<br /><strong>${worker.fullName}</strong>` : "Deleted worker"}</td>
-        <td><span class="status ${record.status === "present" ? "active" : "inactive"}">${record.status}</span></td>
-        <td>${record.hours || 0}</td>
-        <td>${record.notes || ""}</td>
+        <td>${esc(record.date)}</td>
+        <td>${worker ? `${esc(worker.employeeNumber)}<br /><strong>${esc(worker.fullName)}</strong>` : "Deleted worker"}</td>
+        <td><span class="status ${record.status === "present" ? "active" : "inactive"}">${esc(record.status)}</span></td>
+        <td>${esc(record.hours || 0)}</td>
+        <td>${esc(record.notes || "")}</td>
         <td>
           <div class="row-actions">
-            <button type="button" data-edit-attendance="${record.id}">Edit</button>
-            <button class="danger-button" type="button" data-delete-attendance="${record.id}">Delete</button>
+            <button type="button" data-edit-attendance="${esc(record.id)}">Edit</button>
+            <button class="danger-button" type="button" data-delete-attendance="${esc(record.id)}">Delete</button>
           </div>
         </td>
       </tr>
@@ -560,16 +595,16 @@ function renderCredits() {
     const worker = getWorker(credit.workerId);
     return `
       <tr>
-        <td>${credit.date}</td>
-        <td>${worker ? `${worker.employeeNumber}<br /><strong>${worker.fullName}</strong>` : "Deleted worker"}</td>
-        <td>${credit.item}<br /><span>${credit.notes || ""}</span></td>
-        <td>${credit.payrollMonth}</td>
+        <td>${esc(credit.date)}</td>
+        <td>${worker ? `${esc(worker.employeeNumber)}<br /><strong>${esc(worker.fullName)}</strong>` : "Deleted worker"}</td>
+        <td>${esc(credit.item)}<br /><span>${esc(credit.notes || "")}</span></td>
+        <td>${esc(credit.payrollMonth)}</td>
         <td><strong>${money(credit.amount)}</strong></td>
-        <td><span class="status ${credit.status === "deducted" ? "active" : "inactive"}">${credit.status}</span></td>
+        <td><span class="status ${credit.status === "deducted" ? "active" : "inactive"}">${esc(credit.status)}</span></td>
         <td>
           <div class="row-actions">
-            <button type="button" data-edit-credit="${credit.id}">Edit</button>
-            <button class="danger-button" type="button" data-delete-credit="${credit.id}">Delete</button>
+            <button type="button" data-edit-credit="${esc(credit.id)}">Edit</button>
+            <button class="danger-button" type="button" data-delete-credit="${esc(credit.id)}">Delete</button>
           </div>
         </td>
       </tr>
@@ -603,17 +638,17 @@ function renderLoans() {
     const worker = getWorker(loan.workerId);
     return `
       <tr>
-        <td>${loan.date}</td>
-        <td>${worker ? `${worker.employeeNumber}<br /><strong>${worker.fullName}</strong>` : "Deleted worker"}</td>
-        <td>${loan.type}</td>
+        <td>${esc(loan.date)}</td>
+        <td>${worker ? `${esc(worker.employeeNumber)}<br /><strong>${esc(worker.fullName)}</strong>` : "Deleted worker"}</td>
+        <td>${esc(loan.type)}</td>
         <td>${money(loan.amount)}</td>
         <td>${money(loan.monthlyDeduction)}</td>
         <td><strong>${money(loanBalance(loan))}</strong></td>
-        <td><span class="status ${loan.status}">${loan.status}</span></td>
+        <td><span class="status ${safeClass(loan.status, ["active", "closed"], "inactive")}">${esc(loan.status)}</span></td>
         <td>
           <div class="row-actions">
-            <button type="button" data-edit-loan="${loan.id}">Edit</button>
-            <button class="danger-button" type="button" data-delete-loan="${loan.id}">Delete</button>
+            <button type="button" data-edit-loan="${esc(loan.id)}">Edit</button>
+            <button class="danger-button" type="button" data-delete-loan="${esc(loan.id)}">Delete</button>
           </div>
         </td>
       </tr>
@@ -643,10 +678,10 @@ function renderDashboard() {
       const worker = getWorker(record.workerId);
       return `
         <tr>
-          <td>${record.date}</td>
-          <td>${worker?.fullName || "Deleted worker"}</td>
-          <td>${record.workType}</td>
-          <td>${record.quantity}</td>
+          <td>${esc(record.date)}</td>
+          <td>${esc(worker?.fullName || "Deleted worker")}</td>
+          <td>${esc(record.workType)}</td>
+          <td>${esc(record.quantity)}</td>
           <td>${money(record.total)}</td>
         </tr>
       `;
@@ -657,7 +692,7 @@ function renderDashboard() {
     .slice(0, 5);
   els.payrollSnapshot.innerHTML = topPayroll.map((row) => `
     <div class="summary-row">
-      <span>${row.worker.employeeNumber} - ${row.worker.fullName}</span>
+      <span>${esc(row.worker.employeeNumber)} - ${esc(row.worker.fullName)}</span>
       <strong>${money(row.net)}</strong>
     </div>
   `).join("") || `<div class="summary-row"><span>No payroll for this month yet.</span></div>`;
@@ -736,14 +771,14 @@ function renderPayroll() {
   const rows = payrollForMonth(month);
   els.payrollTable.innerHTML = rows.map((row) => `
     <tr>
-      <td>${row.worker.employeeNumber}</td>
-      <td>${row.worker.fullName}</td>
+      <td>${esc(row.worker.employeeNumber)}</td>
+      <td>${esc(row.worker.fullName)}</td>
       <td>${money(row.gross)}</td>
       <td>${money(row.deductions.credits)}</td>
       <td>${money(row.deductions.loans)}</td>
       <td>${money(row.deductions.total)}</td>
       <td><strong>${money(row.net)}</strong></td>
-      <td><button type="button" data-payslip="${row.worker.id}">View</button></td>
+      <td><button type="button" data-payslip="${esc(row.worker.id)}">View</button></td>
     </tr>
   `).join("") || emptyRow(8, "No payroll records for this month.");
 }
@@ -757,22 +792,22 @@ function renderPayslip(workerId) {
     <article class="payslip">
       <div class="payslip-head">
         <div>
-          ${state.settings.logoDataUrl ? `<img class="payslip-logo" src="${state.settings.logoDataUrl}" alt="${state.settings.farmName} logo" />` : ""}
-          <h3>${state.settings.farmName || FARM_NAME}</h3>
+          ${safeImageDataUrl(state.settings.logoDataUrl) ? `<img class="payslip-logo" src="${esc(safeImageDataUrl(state.settings.logoDataUrl))}" alt="${esc(state.settings.farmName)} logo" />` : ""}
+          <h3>${esc(state.settings.farmName || FARM_NAME)}</h3>
           <p>Monthly Payslip</p>
         </div>
         <div>
           <strong>Period</strong>
-          <p>${month}</p>
+          <p>${esc(month)}</p>
         </div>
       </div>
       <div class="payslip-meta">
-        <p><strong>Employee:</strong> ${row.worker.fullName}</p>
-        <p><strong>Employee no.:</strong> ${row.worker.employeeNumber}</p>
-        <p><strong>National ID:</strong> ${row.worker.nationalId}</p>
-        <p><strong>Department:</strong> ${row.worker.department}</p>
-        <p><strong>Position:</strong> ${row.worker.position}</p>
-        <p><strong>Date employed:</strong> ${row.worker.dateEmployed}</p>
+        <p><strong>Employee:</strong> ${esc(row.worker.fullName)}</p>
+        <p><strong>Employee no.:</strong> ${esc(row.worker.employeeNumber)}</p>
+        <p><strong>National ID:</strong> ${esc(row.worker.nationalId)}</p>
+        <p><strong>Department:</strong> ${esc(row.worker.department)}</p>
+        <p><strong>Position:</strong> ${esc(row.worker.position)}</p>
+        <p><strong>Date employed:</strong> ${esc(row.worker.dateEmployed)}</p>
       </div>
       <table>
         <thead>
@@ -787,9 +822,9 @@ function renderPayslip(workerId) {
         <tbody>
           ${row.workItems.map((item) => `
             <tr>
-              <td>${item.date}</td>
-              <td>${item.workType}</td>
-              <td>${item.quantity}</td>
+              <td>${esc(item.date)}</td>
+              <td>${esc(item.workType)}</td>
+              <td>${esc(item.quantity)}</td>
               <td>${money(item.rate)}</td>
               <td>${money(item.total)}</td>
             </tr>
@@ -817,8 +852,8 @@ function renderPayslip(workerId) {
           <tbody>
             ${creditsForWorkerMonth(row.worker.id, month).map((credit) => `
               <tr>
-                <td>${credit.date}</td>
-                <td>${credit.item}</td>
+                <td>${esc(credit.date)}</td>
+                <td>${esc(credit.item)}</td>
                 <td>${money(credit.amount)}</td>
               </tr>
             `).join("")}
@@ -887,15 +922,15 @@ function groupBy(items, key) {
 }
 
 function summaryRow(label, value) {
-  return `<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`;
+  return `<div class="summary-row"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
 }
 
 function emptySummary(text) {
-  return `<div class="summary-row"><span>${text}</span></div>`;
+  return `<div class="summary-row"><span>${esc(text)}</span></div>`;
 }
 
 function emptyRow(colspan, text) {
-  return `<tr><td colspan="${colspan}">${text}</td></tr>`;
+  return `<tr><td colspan="${colspan}">${esc(text)}</td></tr>`;
 }
 
 function resetWorkerForm() {
@@ -935,10 +970,10 @@ function resetLoanForm() {
 function renderAccounts() {
   els.accountsTable.innerHTML = state.users.map((user) => `
     <tr>
-      <td>${user.name}</td>
-      <td>${user.username}</td>
+      <td>${esc(user.name)}</td>
+      <td>${esc(user.username)}</td>
       <td>${roleLabel(user.role)}</td>
-      <td><span class="status ${user.status}">${user.status}</span></td>
+      <td><span class="status ${safeClass(user.status, ["active", "inactive"])}">${esc(user.status)}</span></td>
     </tr>
   `).join("") || emptyRow(4, "No user accounts created.");
 }
@@ -948,7 +983,7 @@ function renderSettings() {
   els.settingsCurrency.value = state.settings.currency || "USD";
   els.settingsFarmNamePreview.textContent = state.settings.farmName || FARM_NAME;
   els.settingsLogoPreview.innerHTML = state.settings.logoDataUrl
-    ? `<img src="${state.settings.logoDataUrl}" alt="${state.settings.farmName || FARM_NAME} logo" />`
+    ? `<img src="${esc(safeImageDataUrl(state.settings.logoDataUrl))}" alt="${esc(state.settings.farmName || FARM_NAME)} logo" />`
     : "No logo uploaded";
 }
 
@@ -1037,7 +1072,7 @@ function downloadExcel(filename, rows) {
   const table = `
     <table>
       ${rows.map((row, index) => `
-        <tr>${row.map((cell) => index === 0 ? `<th>${cell}</th>` : `<td>${cell}</td>`).join("")}</tr>
+        <tr>${row.map((cell) => index === 0 ? `<th>${esc(cell)}</th>` : `<td>${esc(cell)}</td>`).join("")}</tr>
       `).join("")}
     </table>
   `;
@@ -1065,59 +1100,54 @@ els.setupForm.addEventListener("submit", async (event) => {
   }
 
   const username = normalizeUsername(els.setupUsername.value);
-  if (state.users.some((user) => user.username === username)) {
-    els.setupError.textContent = "That username is already in use.";
-    return;
-  }
-  state.users.push({
-    id: id("user"),
-    name: els.setupName.value.trim(),
-    username,
-    passwordHash: hashPassword(password),
-    role: "main-admin",
-    status: "active",
-    createdAt: new Date().toISOString(),
-  });
-  const saved = await saveState();
-  if (!saved && location.protocol !== "file:") {
-    state.users = state.users.filter((user) => user.username !== username);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    els.setupError.textContent = "Could not save the Main Admin account to the shared server. Check deployment storage/API and try again.";
-    renderAll();
+  try {
+    const data = await apiPost(API_SETUP_URL, {
+      name: els.setupName.value.trim(),
+      username,
+      password,
+    });
+    mergeState(data.state);
+    currentUser = data.user;
+    serverHasMainAdmin = true;
+    saveCurrentUser(currentUser);
+  } catch (error) {
+    els.setupError.textContent = error.message;
     return;
   }
   els.setupForm.reset();
   els.setupError.textContent = "";
+  setView("dashboard");
   renderAll();
 });
 
-els.loginForm.addEventListener("submit", (event) => {
+els.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   els.loginError.textContent = "";
   const username = els.loginUsername.value.trim().toLowerCase();
   const password = els.loginPassword.value;
   const selectedRole = els.loginRole.value;
-  const user = state.users.find((candidate) => {
-    return candidate.username === username
-      && candidate.passwordHash === hashPassword(password)
-      && candidate.role === selectedRole
-      && candidate.status === "active";
-  });
-
-  if (!user) {
-    els.loginError.textContent = `Invalid ${roleLabel(selectedRole)} username or password.`;
+  try {
+    const data = await apiPost(API_LOGIN_URL, {
+      username,
+      password,
+      role: selectedRole,
+    });
+    mergeState(data.state);
+    currentUser = data.user;
+    serverHasMainAdmin = true;
+    saveCurrentUser(currentUser);
+  } catch (error) {
+    els.loginError.textContent = error.message;
     return;
   }
-
-  currentUser = { id: user.id, role: user.role, name: user.name, username: user.username };
-  saveCurrentUser(currentUser);
   els.loginForm.reset();
   els.loginError.textContent = "";
-  setView(user.role === "supervisor" ? "work-register" : "dashboard");
+  setView(currentUser.role === "supervisor" ? "work-register" : "dashboard");
   renderAll();
 });
 
-els.logoutBtn.addEventListener("click", () => {
+els.logoutBtn.addEventListener("click", async () => {
+  await apiPost(API_LOGOUT_URL).catch(() => {});
   currentUser = null;
   clearCurrentUser();
   setView("dashboard");
@@ -1127,7 +1157,7 @@ els.logoutBtn.addEventListener("click", () => {
 els.roleSelect.addEventListener("change", renderAll);
 els.seedDataBtn.addEventListener("click", seedData);
 els.clearDataBtn.addEventListener("click", () => {
-  if (!confirm("Reset all farm management MVP data?")) return;
+  if (!confirm("Reset all farm management system data?")) return;
   state.workers = [];
   state.rates = [];
   state.workRecords = [];
@@ -1388,27 +1418,23 @@ els.accountForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const newUser = {
-    id: id("user"),
-    name: els.accountName.value.trim(),
-    username,
-    passwordHash: hashPassword(els.accountPassword.value),
-    role: els.accountRole.value,
-    status: "active",
-    createdAt: new Date().toISOString(),
-  };
-  state.users.push(newUser);
-  const saved = await saveState();
-  if (!saved && location.protocol !== "file:") {
-    state.users = state.users.filter((user) => user.id !== newUser.id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    els.accountMessage.textContent = "Could not save this account to the shared server. Try again.";
-    renderAccounts();
+  let newUser;
+  try {
+    const data = await apiPost(API_ACCOUNTS_URL, {
+      name: els.accountName.value.trim(),
+      username,
+      password: els.accountPassword.value,
+      role: els.accountRole.value,
+    });
+    mergeState(data.state);
+    newUser = data.user;
+  } catch (error) {
+    els.accountMessage.textContent = error.message;
     return;
   }
   els.accountForm.reset();
   els.accountMessage.textContent = `${roleLabel(newUser.role)} account created.`;
-  renderAccounts();
+  renderAll();
 });
 
 els.workType.addEventListener("change", syncSelectedRate);
@@ -1557,12 +1583,27 @@ resetLoanForm();
 initializeApp();
 
 async function initializeApp() {
-  await syncFromServer();
+  try {
+    const sessionResponse = await fetch(API_SESSION_URL, { cache: "no-store", credentials: "same-origin" });
+    const sessionData = await sessionResponse.json();
+    serverHasMainAdmin = Boolean(sessionData.hasMainAdmin);
+    currentUser = sessionData.user || null;
+    if (currentUser) {
+      saveCurrentUser(currentUser);
+    } else {
+      clearCurrentUser();
+    }
+  } catch {
+    currentUser = loadCurrentUser();
+  }
+
+  if (currentUser) {
+    await syncFromServer();
+  }
   const changed = migrateState();
-  if (changed) {
+  if (changed && currentUser) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     await syncToServer();
   }
-  currentUser = loadCurrentUser();
   renderAll();
 }
