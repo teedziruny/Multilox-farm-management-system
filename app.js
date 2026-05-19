@@ -6,6 +6,8 @@ const API_LOGIN_URL = "/api/login";
 const API_LOGOUT_URL = "/api/logout";
 const API_SETUP_URL = "/api/setup";
 const API_ACCOUNTS_URL = "/api/accounts";
+const API_RECOVER_URL = "/api/recover";
+const API_RECOVERY_URL = "/api/recovery";
 const FARM_NAME = "Multilox";
 const DEFAULT_SETTINGS = { farmName: FARM_NAME, currency: "USD", logoDataUrl: "" };
 const SESSION_TIMEOUT_MS = 90 * 1000;
@@ -27,11 +29,23 @@ const els = {
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
   loginError: document.getElementById("loginError"),
+  showRecoveryBtn: document.getElementById("showRecoveryBtn"),
+  recoveryForm: document.getElementById("recoveryForm"),
+  recoveryRole: document.getElementById("recoveryRole"),
+  recoveryUsername: document.getElementById("recoveryUsername"),
+  recoveryContact: document.getElementById("recoveryContact"),
+  recoveryCode: document.getElementById("recoveryCode"),
+  recoveryNewPassword: document.getElementById("recoveryNewPassword"),
+  recoveryConfirmPassword: document.getElementById("recoveryConfirmPassword"),
+  recoveryError: document.getElementById("recoveryError"),
+  backToLoginBtn: document.getElementById("backToLoginBtn"),
   setupForm: document.getElementById("setupForm"),
   setupName: document.getElementById("setupName"),
   setupUsername: document.getElementById("setupUsername"),
   setupPassword: document.getElementById("setupPassword"),
   setupConfirmPassword: document.getElementById("setupConfirmPassword"),
+  setupRecoveryContact: document.getElementById("setupRecoveryContact"),
+  setupRecoveryCode: document.getElementById("setupRecoveryCode"),
   setupError: document.getElementById("setupError"),
   logoutBtn: document.getElementById("logoutBtn"),
   currentUserLabel: document.getElementById("currentUserLabel"),
@@ -179,9 +193,15 @@ const els = {
   accountName: document.getElementById("accountName"),
   accountUsername: document.getElementById("accountUsername"),
   accountPassword: document.getElementById("accountPassword"),
+  accountRecoveryContact: document.getElementById("accountRecoveryContact"),
+  accountRecoveryCode: document.getElementById("accountRecoveryCode"),
   accountRole: document.getElementById("accountRole"),
   accountMessage: document.getElementById("accountMessage"),
   accountsTable: document.getElementById("accountsTable"),
+  recoverySettingsForm: document.getElementById("recoverySettingsForm"),
+  settingsRecoveryContact: document.getElementById("settingsRecoveryContact"),
+  settingsRecoveryCode: document.getElementById("settingsRecoveryCode"),
+  recoverySettingsMessage: document.getElementById("recoverySettingsMessage"),
 };
 
 if (els.workDate) els.workDate.value = todayIso;
@@ -503,6 +523,7 @@ function renderAuth() {
   els.loginScreen.classList.toggle("app-hidden", isLoggedIn);
   els.loginLoading.classList.add("app-hidden");
   els.loginForm.classList.toggle("app-hidden", needsSetup || isLoggedIn);
+  els.recoveryForm.classList.add("app-hidden");
   els.setupForm.classList.toggle("app-hidden", !needsSetup || isLoggedIn);
   els.appShell.classList.toggle("app-hidden", !isLoggedIn);
   if (!isLoggedIn) return;
@@ -1139,6 +1160,10 @@ function renderAccounts() {
       <td><span class="status ${safeClass(user.status, ["active", "inactive"])}">${esc(user.status)}</span></td>
     </tr>
   `).join("") || emptyRow(4, "No user accounts created.");
+  if (currentUser) {
+    const fullUser = state.users.find((user) => user.id === currentUser.id || user.username === currentUser.username);
+    els.settingsRecoveryContact.value = fullUser?.recoveryContact || currentUser.recoveryContact || "";
+  }
 }
 
 function renderSettings() {
@@ -1287,6 +1312,8 @@ els.setupForm.addEventListener("submit", async (event) => {
       name: els.setupName.value.trim(),
       username,
       password,
+      recoveryContact: els.setupRecoveryContact.value.trim(),
+      recoveryCode: els.setupRecoveryCode.value,
     });
     mergeState(data.state);
     currentUser = data.user;
@@ -1301,6 +1328,44 @@ els.setupForm.addEventListener("submit", async (event) => {
   setView("dashboard");
   markActivity();
   renderAll();
+});
+
+els.showRecoveryBtn.addEventListener("click", () => {
+  els.loginForm.classList.add("app-hidden");
+  els.recoveryForm.classList.remove("app-hidden");
+  els.recoveryError.textContent = "";
+});
+
+els.backToLoginBtn.addEventListener("click", () => {
+  els.recoveryForm.reset();
+  els.recoveryForm.classList.add("app-hidden");
+  els.loginForm.classList.remove("app-hidden");
+  els.recoveryError.textContent = "";
+});
+
+els.recoveryForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.recoveryError.textContent = "";
+  if (els.recoveryNewPassword.value !== els.recoveryConfirmPassword.value) {
+    els.recoveryError.textContent = "New passwords do not match.";
+    return;
+  }
+  try {
+    await apiPost(API_RECOVER_URL, {
+      username: normalizeUsername(els.recoveryUsername.value),
+      role: els.recoveryRole.value,
+      recoveryContact: els.recoveryContact.value.trim(),
+      recoveryCode: els.recoveryCode.value,
+      newPassword: els.recoveryNewPassword.value,
+    });
+  } catch (error) {
+    els.recoveryError.textContent = error.message;
+    return;
+  }
+  els.recoveryForm.reset();
+  els.recoveryForm.classList.add("app-hidden");
+  els.loginForm.classList.remove("app-hidden");
+  els.loginError.textContent = "Password reset. Log in with your new password.";
 });
 
 els.loginForm.addEventListener("submit", async (event) => {
@@ -1687,6 +1752,8 @@ els.accountForm.addEventListener("submit", async (event) => {
       name: els.accountName.value.trim(),
       username,
       password: els.accountPassword.value,
+      recoveryContact: els.accountRecoveryContact.value.trim(),
+      recoveryCode: els.accountRecoveryCode.value,
       role: els.accountRole.value,
     });
     mergeState(data.state);
@@ -1697,6 +1764,26 @@ els.accountForm.addEventListener("submit", async (event) => {
   }
   els.accountForm.reset();
   els.accountMessage.textContent = `${roleLabel(newUser.role)} account created.`;
+  renderAll();
+});
+
+els.recoverySettingsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.recoverySettingsMessage.textContent = "";
+  try {
+    const data = await apiPost(API_RECOVERY_URL, {
+      recoveryContact: els.settingsRecoveryContact.value.trim(),
+      recoveryCode: els.settingsRecoveryCode.value,
+    });
+    mergeState(data.state);
+    currentUser = data.user;
+    saveCurrentUser(currentUser);
+  } catch (error) {
+    els.recoverySettingsMessage.textContent = error.message;
+    return;
+  }
+  els.settingsRecoveryCode.value = "";
+  els.recoverySettingsMessage.textContent = "Recovery details saved.";
   renderAll();
 });
 

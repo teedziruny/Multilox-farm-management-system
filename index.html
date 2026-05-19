@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=8" />
+    <link rel="stylesheet" href="styles.css?v=9" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
@@ -50,6 +50,36 @@
         <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
         <p class="login-error" id="loginError" role="alert"></p>
         <button type="submit">Log in</button>
+        <button class="secondary-button" id="showRecoveryBtn" type="button">Forgot password</button>
+      </form>
+
+      <form class="login-card app-hidden" id="recoveryForm">
+        <div class="brand login-brand">
+          <div class="brand-mark">ML</div>
+          <div>
+            <strong>Multilox</strong>
+            <span>Account Recovery</span>
+          </div>
+        </div>
+        <div>
+          <p class="eyebrow">Verify account</p>
+          <h1>Reset password</h1>
+        </div>
+        <label>Recover as
+          <select id="recoveryRole" required>
+            <option value="main-admin">Main Admin</option>
+            <option value="admin">Secondary Admin</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+        </label>
+        <label>Username<input id="recoveryUsername" autocomplete="username" required /></label>
+        <label>Recovery email or phone<input id="recoveryContact" required /></label>
+        <label>Recovery code<input id="recoveryCode" type="password" minlength="6" required /></label>
+        <label>New password<input id="recoveryNewPassword" type="password" minlength="8" required /></label>
+        <label>Confirm new password<input id="recoveryConfirmPassword" type="password" minlength="8" required /></label>
+        <p class="login-error" id="recoveryError" role="alert"></p>
+        <button type="submit">Reset password</button>
+        <button class="secondary-button" id="backToLoginBtn" type="button">Back to login</button>
       </form>
 
       <form class="login-card app-hidden" id="setupForm">
@@ -68,6 +98,8 @@
         <label>Username<input id="setupUsername" autocomplete="username" required /></label>
         <label>Password<input id="setupPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
         <label>Confirm password<input id="setupConfirmPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <label>Recovery email or phone<input id="setupRecoveryContact" required /></label>
+        <label>Recovery code<input id="setupRecoveryCode" type="password" minlength="6" required /></label>
         <p class="login-error" id="setupError" role="alert"></p>
         <button type="submit">Create main admin account</button>
         <div class="credential-hint">
@@ -749,6 +781,8 @@
                 <label>Full name<input id="accountName" required /></label>
                 <label>Username<input id="accountUsername" required /></label>
                 <label>Password<input id="accountPassword" type="password" minlength="8" required /></label>
+                <label>Recovery email or phone<input id="accountRecoveryContact" required /></label>
+                <label>Recovery code<input id="accountRecoveryCode" type="password" minlength="6" required /></label>
                 <label>Role
                   <select id="accountRole">
                     <option value="admin">Secondary Admin</option>
@@ -780,11 +814,24 @@
                 </table>
               </div>
             </section>
+            <form class="panel form-panel" id="recoverySettingsForm">
+              <div class="panel-header">
+                <h2>My Recovery Details</h2>
+              </div>
+              <div class="form-grid">
+                <label>Recovery email or phone<input id="settingsRecoveryContact" required /></label>
+                <label>New recovery code<input id="settingsRecoveryCode" type="password" minlength="6" required /></label>
+              </div>
+              <p class="form-message" id="recoverySettingsMessage"></p>
+              <div class="form-actions">
+                <button type="submit">Save recovery details</button>
+              </div>
+            </form>
           </div>
         </section>
       </main>
     </div>
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
   </body>
 </html>

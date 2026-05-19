@@ -246,6 +246,10 @@ tbody tr:hover {
   overflow: hidden;
 }
 
+.login-card .secondary-button {
+  width: 100%;
+}
+
 .login-card::before {
   content: "";
   position: absolute;

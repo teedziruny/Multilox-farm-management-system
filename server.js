@@ -21,6 +21,8 @@ const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, "data");
 const DATA_FILE = path.join(DATA_DIR, "db.json");
+const BACKUP_DIR = path.join(DATA_DIR, "backups");
+const MAX_BACKUPS = Number(process.env.MAX_BACKUPS || 30);
 const DATABASE_URL = process.env.DATABASE_URL;
 const USE_DATABASE = Boolean(DATABASE_URL);
 const SESSION_SECRET = process.env.SESSION_SECRET || "change-this-session-secret";
@@ -87,6 +89,7 @@ function sanitizeUser(user) {
     username: user.username,
     role: user.role,
     status: user.status,
+    recoveryContact: user.recoveryContact || "",
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
   };
@@ -128,6 +131,14 @@ async function verifyPassword(user, password) {
     return bcrypt ? bcrypt.compare(password, user.passwordHash) : false;
   }
   return user.passwordHash === legacyHashPassword(password);
+}
+
+async function verifyRecoveryCode(user, code) {
+  if (!user.recoveryCodeHash) return false;
+  if (user.recoveryCodeHash?.startsWith("$2")) {
+    return bcrypt ? bcrypt.compare(code, user.recoveryCodeHash) : false;
+  }
+  return user.recoveryCodeHash === legacyHashPassword(code);
 }
 
 function makeSession(user) {
@@ -214,6 +225,23 @@ async function ensureDataFile() {
   }
 }
 
+function backupName() {
+  return `db-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+}
+
+async function backupDataFile() {
+  if (USE_DATABASE) return;
+  await ensureDataFile();
+  await fs.mkdir(BACKUP_DIR, { recursive: true });
+  const target = path.join(BACKUP_DIR, backupName());
+  await fs.copyFile(DATA_FILE, target);
+  const backups = (await fs.readdir(BACKUP_DIR))
+    .filter((name) => name.startsWith("db-") && name.endsWith(".json"))
+    .sort()
+    .reverse();
+  await Promise.all(backups.slice(MAX_BACKUPS).map((name) => fs.unlink(path.join(BACKUP_DIR, name)).catch(() => {})));
+}
+
 async function readState() {
   if (USE_DATABASE) {
     await ensureDatabase();
@@ -239,6 +267,7 @@ async function writeState(state) {
     return nextState;
   }
   await ensureDataFile();
+  await backupDataFile();
   await fs.writeFile(DATA_FILE, JSON.stringify(nextState, null, 2));
   return nextState;
 }
@@ -258,6 +287,10 @@ function audit(state, user, action, detail = {}) {
 
 function normalizeUsername(username) {
   return String(username || "").trim().toLowerCase();
+}
+
+function normalizeRecoveryContact(contact) {
+  return String(contact || "").trim().toLowerCase();
 }
 
 function readRequestBody(request) {
@@ -351,11 +384,17 @@ async function handleSetup(request, response) {
     sendJson(response, 400, { error: "Name, username, and an 8+ character password are required" });
     return;
   }
+  if (!body.recoveryContact || !body.recoveryCode || String(body.recoveryCode).length < 6) {
+    sendJson(response, 400, { error: "Recovery email/phone and a 6+ character recovery code are required" });
+    return;
+  }
   const user = {
     id: crypto.randomUUID(),
     name: String(body.name).trim(),
     username,
     passwordHash: await hashPassword(body.password),
+    recoveryContact: normalizeRecoveryContact(body.recoveryContact),
+    recoveryCodeHash: await hashPassword(String(body.recoveryCode)),
     role: "main-admin",
     status: "active",
     createdAt: new Date().toISOString(),
@@ -404,6 +443,10 @@ async function handleCreateAccount(request, response, session) {
     sendJson(response, 400, { error: "Name, username, and an 8+ character password are required" });
     return;
   }
+  if (!body.recoveryContact || !body.recoveryCode || String(body.recoveryCode).length < 6) {
+    sendJson(response, 400, { error: "Recovery email/phone and a 6+ character recovery code are required" });
+    return;
+  }
   if (state.users.some((user) => user.username === username)) {
     sendJson(response, 409, { error: "That username is already in use" });
     return;
@@ -413,6 +456,8 @@ async function handleCreateAccount(request, response, session) {
     name: String(body.name).trim(),
     username,
     passwordHash: await hashPassword(body.password),
+    recoveryContact: normalizeRecoveryContact(body.recoveryContact),
+    recoveryCodeHash: await hashPassword(String(body.recoveryCode)),
     role: body.role,
     status: "active",
     createdAt: new Date().toISOString(),
@@ -421,6 +466,49 @@ async function handleCreateAccount(request, response, session) {
   audit(state, session, "created-account", { username, role: body.role });
   await writeState(state);
   sendJson(response, 201, { user: sanitizeUser(user), state: sanitizeState(state) });
+}
+
+async function handleUpdateRecovery(request, response, session) {
+  const state = await readState();
+  const body = await readJsonBody(request);
+  const user = state.users.find((candidate) => candidate.id === session.id && candidate.status === "active");
+  if (!user) {
+    sendJson(response, 404, { error: "Signed-in user was not found" });
+    return;
+  }
+  if (!body.recoveryContact || !body.recoveryCode || String(body.recoveryCode).length < 6) {
+    sendJson(response, 400, { error: "Recovery email/phone and a 6+ character recovery code are required" });
+    return;
+  }
+  user.recoveryContact = normalizeRecoveryContact(body.recoveryContact);
+  user.recoveryCodeHash = await hashPassword(String(body.recoveryCode));
+  audit(state, session, "updated-recovery", { username: user.username });
+  await writeState(state);
+  sendJson(response, 200, { user: sanitizeUser(user), state: sanitizeState(state) });
+}
+
+async function handleRecoverAccount(request, response) {
+  const state = await readState();
+  const body = await readJsonBody(request);
+  const username = normalizeUsername(body.username);
+  const contact = normalizeRecoveryContact(body.recoveryContact);
+  const newPassword = String(body.newPassword || "");
+  if (!username || !body.role || !contact || !body.recoveryCode || newPassword.length < 8) {
+    sendJson(response, 400, { error: "Username, role, recovery contact, recovery code, and an 8+ character new password are required" });
+    return;
+  }
+  const user = state.users.find((candidate) => {
+    return candidate.username === username && candidate.role === body.role && candidate.status === "active";
+  });
+  if (!user || normalizeRecoveryContact(user.recoveryContact) !== contact || !(await verifyRecoveryCode(user, String(body.recoveryCode)))) {
+    sendJson(response, 401, { error: "Recovery verification failed" });
+    return;
+  }
+  user.passwordHash = await hashPassword(newPassword);
+  user.lastPasswordResetAt = new Date().toISOString();
+  audit(state, user, "recovered-password", { username: user.username });
+  await writeState(state);
+  sendJson(response, 200, { ok: true });
 }
 
 function mergeSupervisorChanges(currentState, incomingState) {
@@ -495,6 +583,11 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    if (request.url === "/api/recover" && request.method === "POST") {
+      await handleRecoverAccount(request, response);
+      return;
+    }
+
     if (request.url === "/api/logout" && request.method === "POST") {
       clearSessionCookie(response);
       sendJson(response, 200, { ok: true });
@@ -505,6 +598,13 @@ const server = http.createServer(async (request, response) => {
       const session = requireSession(request, response);
       if (!session) return;
       await handleCreateAccount(request, response, session);
+      return;
+    }
+
+    if (request.url === "/api/recovery" && request.method === "POST") {
+      const session = requireSession(request, response);
+      if (!session) return;
+      await handleUpdateRecovery(request, response, session);
       return;
     }
 
