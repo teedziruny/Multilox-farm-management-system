@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=3" />
+    <link rel="stylesheet" href="styles.css?v=4" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
@@ -120,7 +120,6 @@
           </div>
           <div class="topbar-actions">
             <button class="ghost-button" id="seedDataBtn" type="button">Load sample data</button>
-            <button class="ghost-button" id="clearDataBtn" type="button">Reset data</button>
           </div>
         </header>
 
@@ -312,6 +311,37 @@
         </section>
 
         <section class="view" id="work-register">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Daily Bulk Work Register</h2>
+            </div>
+            <form id="bulkWorkForm">
+              <div class="form-grid">
+                <label>Date<input id="bulkWorkDate" type="date" required /></label>
+                <label>Work type<select id="bulkWorkType" required></select></label>
+                <label>Rate<input id="bulkWorkRate" type="number" min="0" step="0.01" required /></label>
+                <label>Default hours<input id="bulkWorkHours" type="number" min="0" step="0.5" value="8" /></label>
+              </div>
+              <div class="table-wrap bulk-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Present</th>
+                      <th>Worker</th>
+                      <th>Quantity completed</th>
+                      <th>Total</th>
+                      <th>Comments</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bulkWorkTable"></tbody>
+                </table>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save selected workers</button>
+              </div>
+            </form>
+          </section>
+
           <div class="split-layout">
             <form class="panel form-panel" id="workForm">
               <div class="panel-header">
@@ -406,6 +436,69 @@
         </section>
 
         <section class="view" id="credits">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Credit Item Price List</h2>
+            </div>
+            <form id="creditItemForm">
+              <div class="form-grid">
+                <label>Item<input id="creditItemName" placeholder="Sugar, rice, cooking oil" required /></label>
+                <label>Unit price<input id="creditItemPrice" type="number" min="0" step="0.01" required /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Add item</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Unit price</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="creditItemsTable"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Issue Items on Credit</h2>
+            </div>
+            <form id="bulkCreditForm">
+              <div class="form-grid">
+                <label>Worker<select id="bulkCreditWorker" required></select></label>
+                <label>Date issued<input id="bulkCreditDate" type="date" required /></label>
+                <label>Payroll month<input id="bulkCreditMonth" type="month" required /></label>
+                <label>Status
+                  <select id="bulkCreditStatus">
+                    <option value="pending">Pending deduction</option>
+                    <option value="deducted">Deducted</option>
+                  </select>
+                </label>
+              </div>
+              <div class="table-wrap bulk-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Take</th>
+                      <th>Item</th>
+                      <th>Unit price</th>
+                      <th>Quantity</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bulkCreditItemsTable"></tbody>
+                </table>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save selected items</button>
+              </div>
+            </form>
+          </section>
+
           <div class="split-layout">
             <form class="panel form-panel" id="creditForm">
               <div class="panel-header">
@@ -662,6 +755,23 @@
               </div>
             </section>
           </div>
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Selective Data Reset</h2>
+            </div>
+            <div class="reset-grid">
+              <label><input id="resetWorkers" type="checkbox" /> Workers</label>
+              <label><input id="resetRates" type="checkbox" /> Work rates</label>
+              <label><input id="resetWorkRecords" type="checkbox" /> Work records</label>
+              <label><input id="resetAttendance" type="checkbox" /> Attendance</label>
+              <label><input id="resetCredits" type="checkbox" /> Credit records</label>
+              <label><input id="resetCreditItems" type="checkbox" /> Credit item price list</label>
+              <label><input id="resetLoans" type="checkbox" /> Loans</label>
+            </div>
+            <div class="form-actions">
+              <button class="danger-button" id="selectiveResetBtn" type="button">Reset selected data</button>
+            </div>
+          </section>
         </section>
 
         <section class="view" id="accounts">

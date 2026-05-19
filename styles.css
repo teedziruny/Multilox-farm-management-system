@@ -93,6 +93,12 @@ select {
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
+input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  box-shadow: none;
+}
+
 input:focus,
 select:focus {
   border-color: var(--accent);
@@ -154,8 +160,8 @@ tbody tr:hover {
   place-items: center;
   padding: 20px;
   background:
-    linear-gradient(120deg, rgba(5, 35, 15, 0.38), rgba(13, 80, 34, 0.22)),
-    radial-gradient(circle at 20% 15%, rgba(191, 238, 167, 0.18), transparent 28rem),
+    linear-gradient(120deg, rgba(5, 35, 15, 0.18), rgba(13, 80, 34, 0.08)),
+    radial-gradient(circle at 20% 15%, rgba(191, 238, 167, 0.1), transparent 28rem),
     var(--farm-4) center / cover no-repeat;
   overflow: hidden;
 }
@@ -222,9 +228,9 @@ tbody tr:hover {
 
 .login-screen::after {
   background:
-    radial-gradient(circle at 18% 72%, rgba(140, 214, 106, 0.26), transparent 20rem),
-    radial-gradient(circle at 78% 22%, rgba(230, 255, 214, 0.2), transparent 18rem),
-    linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.2) 45%, transparent 54% 100%);
+    radial-gradient(circle at 18% 72%, rgba(140, 214, 106, 0.12), transparent 20rem),
+    radial-gradient(circle at 78% 22%, rgba(230, 255, 214, 0.1), transparent 18rem),
+    linear-gradient(115deg, transparent 0 38%, rgba(255, 255, 255, 0.08) 45%, transparent 54% 100%);
   filter: blur(1px);
   animation: lightSweep 11s ease-in-out infinite alternate;
 }
@@ -237,7 +243,7 @@ tbody tr:hover {
   width: min(100%, 430px);
   border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.78);
   box-shadow: var(--shadow-strong);
   backdrop-filter: blur(18px);
   padding: 28px;
@@ -546,6 +552,28 @@ tbody tr:hover {
 
 .farm-tile-large {
   min-height: 220px;
+}
+
+.bulk-table-wrap {
+  margin-top: 16px;
+}
+
+.bulk-table-wrap input[type="number"] {
+  min-width: 110px;
+}
+
+.reset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.reset-grid label {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  color: var(--ink);
 }
 
 .content-grid,

@@ -8,6 +8,7 @@ const API_SETUP_URL = "/api/setup";
 const API_ACCOUNTS_URL = "/api/accounts";
 const FARM_NAME = "Multilox";
 const DEFAULT_SETTINGS = { farmName: FARM_NAME, currency: "USD", logoDataUrl: "" };
+const SESSION_TIMEOUT_MS = 90 * 1000;
 
 const todayIso = new Date().toISOString().slice(0, 10);
 const currentMonth = todayIso.slice(0, 7);
@@ -15,6 +16,7 @@ const currentMonth = todayIso.slice(0, 7);
 const state = loadState();
 let currentUser = loadCurrentUser();
 let serverHasMainAdmin = false;
+let inactivityTimer = null;
 
 const els = {
   appShell: document.getElementById("appShell"),
@@ -36,7 +38,6 @@ const els = {
   pageTitle: document.getElementById("pageTitle"),
   roleSelect: document.getElementById("roleSelect"),
   seedDataBtn: document.getElementById("seedDataBtn"),
-  clearDataBtn: document.getElementById("clearDataBtn"),
   navButtons: document.querySelectorAll(".nav-button"),
   views: document.querySelectorAll(".view"),
   workerForm: document.getElementById("workerForm"),
@@ -88,6 +89,12 @@ const els = {
   workFilterDate: document.getElementById("workFilterDate"),
   workFilterType: document.getElementById("workFilterType"),
   workTable: document.getElementById("workTable"),
+  bulkWorkForm: document.getElementById("bulkWorkForm"),
+  bulkWorkDate: document.getElementById("bulkWorkDate"),
+  bulkWorkType: document.getElementById("bulkWorkType"),
+  bulkWorkRate: document.getElementById("bulkWorkRate"),
+  bulkWorkHours: document.getElementById("bulkWorkHours"),
+  bulkWorkTable: document.getElementById("bulkWorkTable"),
   recentWorkTable: document.getElementById("recentWorkTable"),
   metricActiveWorkers: document.getElementById("metricActiveWorkers"),
   metricTodayCost: document.getElementById("metricTodayCost"),
@@ -116,6 +123,16 @@ const els = {
   creditAmount: document.getElementById("creditAmount"),
   creditStatus: document.getElementById("creditStatus"),
   creditNotes: document.getElementById("creditNotes"),
+  creditItemForm: document.getElementById("creditItemForm"),
+  creditItemName: document.getElementById("creditItemName"),
+  creditItemPrice: document.getElementById("creditItemPrice"),
+  creditItemsTable: document.getElementById("creditItemsTable"),
+  bulkCreditForm: document.getElementById("bulkCreditForm"),
+  bulkCreditWorker: document.getElementById("bulkCreditWorker"),
+  bulkCreditDate: document.getElementById("bulkCreditDate"),
+  bulkCreditMonth: document.getElementById("bulkCreditMonth"),
+  bulkCreditStatus: document.getElementById("bulkCreditStatus"),
+  bulkCreditItemsTable: document.getElementById("bulkCreditItemsTable"),
   cancelCreditEdit: document.getElementById("cancelCreditEdit"),
   creditFilterWorker: document.getElementById("creditFilterWorker"),
   creditFilterMonth: document.getElementById("creditFilterMonth"),
@@ -146,6 +163,14 @@ const els = {
   clearLogoBtn: document.getElementById("clearLogoBtn"),
   settingsFarmNamePreview: document.getElementById("settingsFarmNamePreview"),
   settingsLogoPreview: document.getElementById("settingsLogoPreview"),
+  selectiveResetBtn: document.getElementById("selectiveResetBtn"),
+  resetWorkers: document.getElementById("resetWorkers"),
+  resetRates: document.getElementById("resetRates"),
+  resetWorkRecords: document.getElementById("resetWorkRecords"),
+  resetAttendance: document.getElementById("resetAttendance"),
+  resetCredits: document.getElementById("resetCredits"),
+  resetCreditItems: document.getElementById("resetCreditItems"),
+  resetLoans: document.getElementById("resetLoans"),
   accountForm: document.getElementById("accountForm"),
   accountName: document.getElementById("accountName"),
   accountUsername: document.getElementById("accountUsername"),
@@ -156,16 +181,19 @@ const els = {
 };
 
 els.workDate.value = todayIso;
+els.bulkWorkDate.value = todayIso;
 els.payrollMonth.value = currentMonth;
 els.creditDate.value = todayIso;
 els.creditMonth.value = currentMonth;
+els.bulkCreditDate.value = todayIso;
+els.bulkCreditMonth.value = currentMonth;
 els.attendanceDate.value = todayIso;
 els.attendanceFilterMonth.value = currentMonth;
 els.loanDate.value = todayIso;
 els.loanStartMonth.value = currentMonth;
 
 function loadState() {
-  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
+  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
   try {
     const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY)) || fallback;
     return {
@@ -176,6 +204,7 @@ function loadState() {
       workRecords: loaded.workRecords || [],
       deductions: loaded.deductions || [],
       credits: loaded.credits || [],
+      creditItems: loaded.creditItems || [],
       users: loaded.users || [],
       attendance: loaded.attendance || [],
       loans: loaded.loans || [],
@@ -230,7 +259,7 @@ async function syncToServer() {
 }
 
 function mergeState(nextState) {
-  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
+  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
   Object.assign(state, {
     ...fallback,
     ...nextState,
@@ -239,6 +268,7 @@ function mergeState(nextState) {
     workRecords: nextState.workRecords || [],
     deductions: nextState.deductions || [],
     credits: nextState.credits || [],
+    creditItems: nextState.creditItems || [],
     users: nextState.users || [],
     attendance: nextState.attendance || [],
     loans: nextState.loans || [],
@@ -259,6 +289,26 @@ function loadCurrentUser() {
 
 function migrateState() {
   let changed = false;
+  if (!Array.isArray(state.creditItems)) {
+    state.creditItems = [];
+    changed = true;
+  }
+  state.workRecords.forEach((record) => {
+    const accurateTotal = cents(Number(record.quantity || 0) * Number(record.rate || 0));
+    if (Number(record.total) !== accurateTotal) {
+      record.total = accurateTotal;
+      changed = true;
+    }
+  });
+  state.credits.forEach((credit) => {
+    if (Array.isArray(credit.items)) {
+      const accurateAmount = cents(credit.items.reduce((sum, item) => sum + Number(item.total || 0), 0));
+      if (Number(credit.amount) !== accurateAmount) {
+        credit.amount = accurateAmount;
+        changed = true;
+      }
+    }
+  });
   if (!state.users.some((user) => user.role === "main-admin")) {
     const firstAdmin = state.users.find((user) => user.role === "admin" && user.status === "active");
     if (firstAdmin) {
@@ -290,6 +340,42 @@ async function apiPost(url, payload = {}) {
   }
   return data;
 }
+
+async function logout({ notifyServer = true } = {}) {
+  if (notifyServer) {
+    await apiPost(API_LOGOUT_URL).catch(() => {});
+  }
+  currentUser = null;
+  clearCurrentUser();
+  stopInactivityTimer();
+  setView("dashboard");
+  renderAll();
+}
+
+function markActivity() {
+  if (!currentUser) return;
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => {
+    logout().catch(() => {});
+  }, SESSION_TIMEOUT_MS);
+}
+
+function stopInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = null;
+}
+
+["click", "input", "keydown", "mousemove", "touchstart", "scroll"].forEach((eventName) => {
+  window.addEventListener(eventName, markActivity, { passive: true });
+});
+
+window.addEventListener("pagehide", () => {
+  if (!currentUser) return;
+  const payload = new Blob(["{}"], { type: "application/json" });
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(API_LOGOUT_URL, payload);
+  }
+});
 
 function normalizeUsername(username) {
   return username.trim().toLowerCase();
@@ -330,8 +416,16 @@ function id(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function cents(value) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function sumMoney(items, selector = (item) => item) {
+  return cents(items.reduce((sum, item) => sum + Number(selector(item) || 0), 0));
+}
+
 function money(value) {
-  return Number(value || 0).toLocaleString("en-US", { style: "currency", currency: state.settings.currency || "USD" });
+  return cents(value).toLocaleString("en-US", { style: "currency", currency: state.settings.currency || "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function monthIndex(month) {
@@ -384,7 +478,10 @@ function renderAll() {
   renderAttendance();
   renderRates();
   renderWorkOptions();
+  renderBulkWorkRegister();
   renderCreditOptions();
+  renderCreditItems();
+  renderBulkCreditItems();
   renderWorkRecords();
   renderCredits();
   renderLoanOptions();
@@ -422,7 +519,6 @@ function renderRoleAccess() {
   document.querySelector('[data-view="settings"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="accounts"]').classList.toggle("hidden-for-role", isSupervisor);
   els.seedDataBtn.disabled = isSupervisor;
-  els.clearDataBtn.disabled = isSupervisor;
   if (isSupervisor && ["rates", "credits", "loans", "payroll", "reports", "settings", "accounts"].includes(document.querySelector(".view.active")?.id)) {
     setView("work-register");
   }
@@ -487,25 +583,30 @@ function renderRates() {
 }
 
 function renderWorkOptions() {
-  els.workWorker.innerHTML = activeWorkers().map((worker) => `
+  const workerOptions = activeWorkers().map((worker) => `
     <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
+  els.workWorker.innerHTML = workerOptions;
 
   const activeRateOptions = activeRates().map((rate) => `
     <option value="${esc(rate.id)}">${esc(rate.workType)} (${money(rate.amount)} / ${esc(rate.unit)})</option>
   `).join("");
   els.workType.innerHTML = activeRateOptions;
+  els.bulkWorkType.innerHTML = activeRateOptions;
   els.workFilterType.innerHTML = `<option value="">All work types</option>${state.rates.map((rate) => `
     <option value="${esc(rate.workType)}">${esc(rate.workType)}</option>
   `).join("")}`;
 
   syncSelectedRate();
+  syncBulkSelectedRate();
 }
 
 function renderCreditOptions() {
-  els.creditWorker.innerHTML = activeWorkers().map((worker) => `
+  const workerOptions = activeWorkers().map((worker) => `
     <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
+  els.creditWorker.innerHTML = workerOptions;
+  els.bulkCreditWorker.innerHTML = workerOptions;
 }
 
 function renderAttendanceOptions() {
@@ -518,6 +619,54 @@ function renderLoanOptions() {
   els.loanWorker.innerHTML = activeWorkers().map((worker) => `
     <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
+}
+
+function renderBulkWorkRegister() {
+  const rateAmount = Number(els.bulkWorkRate.value || 0);
+  els.bulkWorkTable.innerHTML = activeWorkers().map((worker) => `
+    <tr data-bulk-worker="${esc(worker.id)}">
+      <td><input class="bulk-work-present" type="checkbox" /></td>
+      <td>${esc(worker.employeeNumber)}<br /><strong>${esc(worker.fullName)}</strong></td>
+      <td><input class="bulk-work-qty" type="number" min="0" step="0.01" value="0" /></td>
+      <td><strong class="bulk-work-total">${money(0)}</strong></td>
+      <td><input class="bulk-work-comments" placeholder="Optional" /></td>
+    </tr>
+  `).join("") || emptyRow(5, "Add active workers before using the bulk register.");
+  els.bulkWorkTable.querySelectorAll(".bulk-work-qty").forEach((input) => {
+    input.addEventListener("input", () => {
+      const row = input.closest("tr");
+      row.querySelector(".bulk-work-total").textContent = money(cents(Number(input.value || 0) * rateAmount));
+    });
+  });
+}
+
+function renderCreditItems() {
+  els.creditItemsTable.innerHTML = state.creditItems.map((item) => `
+    <tr>
+      <td><strong>${esc(item.name)}</strong></td>
+      <td>${money(item.price)}</td>
+      <td><button class="danger-button" type="button" data-delete-credit-item="${esc(item.id)}">Delete</button></td>
+    </tr>
+  `).join("") || emptyRow(3, "Add items like sugar, rice, cooking oil, and salt here.");
+}
+
+function renderBulkCreditItems() {
+  els.bulkCreditItemsTable.innerHTML = state.creditItems.map((item) => `
+    <tr data-credit-item="${esc(item.id)}">
+      <td><input class="bulk-credit-take" type="checkbox" /></td>
+      <td><strong>${esc(item.name)}</strong></td>
+      <td>${money(item.price)}</td>
+      <td><input class="bulk-credit-qty" type="number" min="0" step="0.01" value="0" /></td>
+      <td><strong class="bulk-credit-total">${money(0)}</strong></td>
+    </tr>
+  `).join("") || emptyRow(5, "Add item prices before issuing bulk credit.");
+  els.bulkCreditItemsTable.querySelectorAll(".bulk-credit-qty").forEach((input) => {
+    input.addEventListener("input", () => {
+      const row = input.closest("tr");
+      const item = state.creditItems.find((entry) => entry.id === row.dataset.creditItem);
+      row.querySelector(".bulk-credit-total").textContent = money(cents(Number(input.value || 0) * Number(item?.price || 0)));
+    });
+  });
 }
 
 function renderWorkRecords() {
@@ -617,9 +766,9 @@ function renderCredits() {
 
 function creditBalances() {
   return state.workers.map((worker) => {
-    const balance = state.credits
+    const balance = cents(state.credits
       .filter((credit) => credit.workerId === worker.id && credit.status !== "deducted")
-      .reduce((sum, credit) => sum + Number(credit.amount), 0);
+      .reduce((sum, credit) => sum + Number(credit.amount), 0));
     return { workerLabel: `${worker.employeeNumber} - ${worker.fullName}`, balance };
   }).filter((row) => row.balance > 0).sort((a, b) => b.balance - a.balance);
 }
@@ -660,12 +809,13 @@ function renderDashboard() {
   const todayCost = state.workRecords
     .filter((record) => record.date === todayIso)
     .reduce((sum, record) => sum + Number(record.total), 0);
-  const monthPayroll = payrollForMonth(currentMonth).reduce((sum, row) => sum + row.net, 0);
-  const monthCredits = creditsForMonth(currentMonth).reduce((sum, credit) => sum + Number(credit.amount), 0);
-  const monthLoans = state.loans.reduce((sum, loan) => sum + loanDeductionForMonth(loan, currentMonth), 0);
+  const accurateTodayCost = cents(todayCost);
+  const monthPayroll = sumMoney(payrollForMonth(currentMonth), (row) => row.net);
+  const monthCredits = sumMoney(creditsForMonth(currentMonth), (credit) => credit.amount);
+  const monthLoans = sumMoney(state.loans, (loan) => loanDeductionForMonth(loan, currentMonth));
 
   els.metricActiveWorkers.textContent = activeWorkers().length;
-  els.metricTodayCost.textContent = money(todayCost);
+  els.metricTodayCost.textContent = money(accurateTodayCost);
   els.metricMonthPayroll.textContent = money(monthPayroll);
   els.metricActiveRates.textContent = activeRates().length;
   els.metricMonthCredits.textContent = money(monthCredits);
@@ -703,14 +853,14 @@ function payrollForMonth(month) {
     const workItems = state.workRecords.filter((record) => {
       return record.workerId === worker.id && record.date.startsWith(month);
     });
-    const gross = workItems.reduce((sum, record) => sum + Number(record.total), 0);
+    const gross = sumMoney(workItems, (record) => record.total);
     const deductions = calculateDeductions(worker.id, month, gross);
     return {
       worker,
       workItems,
       gross,
       deductions,
-      net: Math.max(gross - deductions.total, 0),
+      net: cents(Math.max(gross - deductions.total, 0)),
     };
   }).filter((row) => {
     return workerMatchesDepartment(row.worker, els.payrollDepartmentFilter.value)
@@ -719,21 +869,20 @@ function payrollForMonth(month) {
 }
 
 function calculateDeductions(workerId, month, gross) {
-  const nssa = gross > 0 ? gross * 0.035 : 0;
-  const manual = state.deductions
+  const nssa = gross > 0 ? cents(gross * 0.035) : 0;
+  const manual = cents(state.deductions
     .filter((item) => item.workerId === workerId && item.month === month)
-    .reduce((sum, item) => sum + Number(item.amount), 0);
-  const credits = creditsForWorkerMonth(workerId, month)
-    .reduce((sum, credit) => sum + Number(credit.amount), 0);
-  const loans = state.loans
+    .reduce((sum, item) => sum + Number(item.amount), 0));
+  const credits = sumMoney(creditsForWorkerMonth(workerId, month), (credit) => credit.amount);
+  const loans = sumMoney(state.loans
     .filter((loan) => loan.workerId === workerId)
-    .reduce((sum, loan) => sum + loanDeductionForMonth(loan, month), 0);
+    .map((loan) => loanDeductionForMonth(loan, month)));
   return {
     nssa,
     manual,
     credits,
     loans,
-    total: nssa + manual + credits + loans,
+    total: cents(nssa + manual + credits + loans),
   };
 }
 
@@ -742,18 +891,18 @@ function loanDeductionForMonth(loan, month) {
   if (monthIndex(month) < monthIndex(loan.startMonth)) return 0;
   const paidBefore = loanPaidBeforeMonth(loan, month);
   const remaining = Math.max(Number(loan.amount) - paidBefore, 0);
-  return Math.min(Number(loan.monthlyDeduction), remaining);
+  return cents(Math.min(Number(loan.monthlyDeduction), remaining));
 }
 
 function loanPaidBeforeMonth(loan, month) {
   if (monthIndex(month) <= monthIndex(loan.startMonth)) return 0;
   const elapsedMonths = monthIndex(month) - monthIndex(loan.startMonth);
-  return Math.min(Number(loan.amount), elapsedMonths * Number(loan.monthlyDeduction));
+  return cents(Math.min(Number(loan.amount), elapsedMonths * Number(loan.monthlyDeduction)));
 }
 
 function loanBalance(loan) {
   const paidThroughCurrentMonth = loanPaidBeforeMonth(loan, currentMonth) + loanDeductionForMonth(loan, currentMonth);
-  return Math.max(Number(loan.amount) - paidThroughCurrentMonth, 0);
+  return cents(Math.max(Number(loan.amount) - paidThroughCurrentMonth, 0));
 }
 
 function creditsForMonth(month) {
@@ -995,8 +1144,19 @@ function syncSelectedRate() {
   syncWorkTotal();
 }
 
+function syncBulkSelectedRate() {
+  const rate = getRate(els.bulkWorkType.value);
+  if (rate) {
+    els.bulkWorkRate.value = rate.amount;
+  }
+  els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]").forEach((row) => {
+    const quantity = Number(row.querySelector(".bulk-work-qty")?.value || 0);
+    row.querySelector(".bulk-work-total").textContent = money(cents(quantity * Number(els.bulkWorkRate.value || 0)));
+  });
+}
+
 function syncWorkTotal() {
-  const total = Number(els.workQuantity.value || 0) * Number(els.workRate.value || 0);
+  const total = cents(Number(els.workQuantity.value || 0) * Number(els.workRate.value || 0));
   els.workTotal.value = money(total);
 }
 
@@ -1043,6 +1203,12 @@ function seedData() {
   state.credits = [
     { id: id("credit"), workerId: workers[0].id, date: todayIso, payrollMonth: currentMonth, item: "Mealie meal", amount: 12, status: "pending", notes: "Grocery store issue" },
     { id: id("credit"), workerId: workers[2].id, date: `${currentMonth}-06`, payrollMonth: currentMonth, item: "Cooking oil and soap", amount: 9.5, status: "pending", notes: "" },
+  ];
+  state.creditItems = [
+    { id: id("credit-item"), name: "Sugar", price: 2.25 },
+    { id: id("credit-item"), name: "Rice", price: 4.5 },
+    { id: id("credit-item"), name: "Cooking oil", price: 6.5 },
+    { id: id("credit-item"), name: "Salt", price: 1 },
   ];
   state.attendance = [
     { id: id("attendance"), workerId: workers[0].id, date: todayIso, status: "present", hours: 8, notes: "" },
@@ -1117,6 +1283,7 @@ els.setupForm.addEventListener("submit", async (event) => {
   els.setupForm.reset();
   els.setupError.textContent = "";
   setView("dashboard");
+  markActivity();
   renderAll();
 });
 
@@ -1143,29 +1310,44 @@ els.loginForm.addEventListener("submit", async (event) => {
   els.loginForm.reset();
   els.loginError.textContent = "";
   setView(currentUser.role === "supervisor" ? "work-register" : "dashboard");
+  markActivity();
   renderAll();
 });
 
 els.logoutBtn.addEventListener("click", async () => {
-  await apiPost(API_LOGOUT_URL).catch(() => {});
-  currentUser = null;
-  clearCurrentUser();
-  setView("dashboard");
-  renderAll();
+  await logout();
 });
 
 els.roleSelect.addEventListener("change", renderAll);
 els.seedDataBtn.addEventListener("click", seedData);
-els.clearDataBtn.addEventListener("click", () => {
-  if (!confirm("Reset all farm management system data?")) return;
-  state.workers = [];
-  state.rates = [];
-  state.workRecords = [];
-  state.credits = [];
-  state.attendance = [];
-  state.loans = [];
-  state.deductions = [];
-  saveState();
+els.selectiveResetBtn.addEventListener("click", async () => {
+  const selected = [
+    ["workers", els.resetWorkers.checked],
+    ["rates", els.resetRates.checked],
+    ["workRecords", els.resetWorkRecords.checked],
+    ["attendance", els.resetAttendance.checked],
+    ["credits", els.resetCredits.checked],
+    ["creditItems", els.resetCreditItems.checked],
+    ["loans", els.resetLoans.checked],
+  ].filter(([, checked]) => checked).map(([key]) => key);
+  if (!selected.length) {
+    alert("Choose at least one data section to reset.");
+    return;
+  }
+  if (!confirm(`Reset only these sections?\n\n${selected.join(", ")}`)) return;
+  selected.forEach((key) => {
+    state[key] = [];
+  });
+  if (selected.includes("workers")) {
+    state.workRecords = [];
+    state.attendance = [];
+    state.credits = [];
+    state.loans = [];
+  }
+  await saveState();
+  [els.resetWorkers, els.resetRates, els.resetWorkRecords, els.resetAttendance, els.resetCredits, els.resetCreditItems, els.resetLoans].forEach((checkbox) => {
+    checkbox.checked = false;
+  });
   renderAll();
 });
 
@@ -1309,6 +1491,71 @@ els.ratesTable.addEventListener("click", (event) => {
 
 els.cancelRateEdit.addEventListener("click", resetRateForm);
 
+els.creditItemForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  state.creditItems.push({
+    id: id("credit-item"),
+    name: els.creditItemName.value.trim(),
+    price: cents(Number(els.creditItemPrice.value || 0)),
+  });
+  await saveState();
+  els.creditItemForm.reset();
+  renderAll();
+});
+
+els.creditItemsTable.addEventListener("click", async (event) => {
+  const deleteId = event.target.dataset.deleteCreditItem;
+  if (deleteId && confirm("Delete this price-list item? Existing credit records will remain.")) {
+    state.creditItems = state.creditItems.filter((item) => item.id !== deleteId);
+    await saveState();
+    renderAll();
+  }
+});
+
+els.bulkCreditItemsTable.addEventListener("input", (event) => {
+  const row = event.target.closest("tr[data-credit-item]");
+  if (!row) return;
+  const item = state.creditItems.find((entry) => entry.id === row.dataset.creditItem);
+  const quantity = Number(row.querySelector(".bulk-credit-qty")?.value || 0);
+  row.querySelector(".bulk-credit-total").textContent = money(cents(quantity * Number(item?.price || 0)));
+});
+
+els.bulkCreditForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const selectedItems = [];
+  els.bulkCreditItemsTable.querySelectorAll("tr[data-credit-item]").forEach((row) => {
+    if (!row.querySelector(".bulk-credit-take").checked) return;
+    const item = state.creditItems.find((entry) => entry.id === row.dataset.creditItem);
+    const quantity = Number(row.querySelector(".bulk-credit-qty").value || 0);
+    if (!item || quantity <= 0) return;
+    selectedItems.push({
+      itemId: item.id,
+      name: item.name,
+      quantity,
+      price: Number(item.price),
+      total: cents(quantity * Number(item.price)),
+    });
+  });
+  if (!selectedItems.length) {
+    alert("Tick at least one item and enter its quantity.");
+    return;
+  }
+  const amount = sumMoney(selectedItems, (item) => item.total);
+  state.credits.push({
+    id: id("credit"),
+    workerId: els.bulkCreditWorker.value,
+    date: els.bulkCreditDate.value,
+    payrollMonth: els.bulkCreditMonth.value,
+    item: selectedItems.map((item) => `${item.name} x ${item.quantity}`).join(", "),
+    amount,
+    status: els.bulkCreditStatus.value,
+    notes: "Bulk item issue",
+    items: selectedItems,
+  });
+  await saveState();
+  renderAll();
+});
+
 els.creditForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const existing = state.credits.find((credit) => credit.id === els.creditId.value);
@@ -1318,7 +1565,7 @@ els.creditForm.addEventListener("submit", (event) => {
     date: els.creditDate.value,
     payrollMonth: els.creditMonth.value,
     item: els.creditItem.value.trim(),
-    amount: Number(els.creditAmount.value),
+    amount: cents(Number(els.creditAmount.value)),
     status: els.creditStatus.value,
     notes: els.creditNotes.value.trim(),
   };
@@ -1440,6 +1687,59 @@ els.accountForm.addEventListener("submit", async (event) => {
 els.workType.addEventListener("change", syncSelectedRate);
 els.workQuantity.addEventListener("input", syncWorkTotal);
 els.workRate.addEventListener("input", syncWorkTotal);
+els.bulkWorkType.addEventListener("change", () => {
+  syncBulkSelectedRate();
+  renderBulkWorkRegister();
+});
+els.bulkWorkRate.addEventListener("input", syncBulkSelectedRate);
+els.bulkWorkForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const rate = getRate(els.bulkWorkType.value);
+  const date = els.bulkWorkDate.value;
+  const rateAmount = Number(els.bulkWorkRate.value || 0);
+  const hours = Number(els.bulkWorkHours.value || 0);
+  let saved = 0;
+  els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]").forEach((row) => {
+    const present = row.querySelector(".bulk-work-present").checked;
+    const workerId = row.dataset.bulkWorker;
+    const quantity = Number(row.querySelector(".bulk-work-qty").value || 0);
+    const comments = row.querySelector(".bulk-work-comments").value.trim();
+    if (!present) return;
+    const existingAttendance = state.attendance.find((record) => record.workerId === workerId && record.date === date);
+    const attendance = {
+      id: existingAttendance?.id || id("attendance"),
+      workerId,
+      date,
+      status: "present",
+      hours,
+      notes: comments,
+    };
+    if (existingAttendance) {
+      Object.assign(existingAttendance, attendance);
+    } else {
+      state.attendance.push(attendance);
+    }
+    if (quantity > 0) {
+      state.workRecords.push({
+        id: id("work"),
+        workerId,
+        date,
+        workType: rate?.workType || "Custom work",
+        quantity,
+        rate: rateAmount,
+        total: cents(quantity * rateAmount),
+        comments,
+      });
+    }
+    saved += 1;
+  });
+  if (!saved) {
+    alert("Tick at least one present worker.");
+    return;
+  }
+  await saveState();
+  renderAll();
+});
 els.workForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const rate = getRate(els.workType.value);
@@ -1452,7 +1752,7 @@ els.workForm.addEventListener("submit", async (event) => {
     workType: rate?.workType || "Custom work",
     quantity,
     rate: rateAmount,
-    total: quantity * rateAmount,
+    total: cents(quantity * rateAmount),
     comments: els.workComments.value.trim(),
   });
   await saveState();
@@ -1587,9 +1887,13 @@ async function initializeApp() {
     const sessionResponse = await fetch(API_SESSION_URL, { cache: "no-store", credentials: "same-origin" });
     const sessionData = await sessionResponse.json();
     serverHasMainAdmin = Boolean(sessionData.hasMainAdmin);
-    currentUser = sessionData.user || null;
+    const browserSessionUser = loadCurrentUser();
+    currentUser = sessionData.user && browserSessionUser ? sessionData.user : null;
     if (currentUser) {
       saveCurrentUser(currentUser);
+    } else if (sessionData.user) {
+      await apiPost(API_LOGOUT_URL).catch(() => {});
+      clearCurrentUser();
     } else {
       clearCurrentUser();
     }
@@ -1604,6 +1908,9 @@ async function initializeApp() {
   if (changed && currentUser) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     await syncToServer();
+  }
+  if (currentUser) {
+    markActivity();
   }
   renderAll();
 }

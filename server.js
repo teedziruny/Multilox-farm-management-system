@@ -37,6 +37,7 @@ const DEFAULT_STATE = {
   workRecords: [],
   deductions: [],
   credits: [],
+  creditItems: [],
   users: [],
   attendance: [],
   loans: [],
@@ -57,7 +58,7 @@ const MIME_TYPES = {
 };
 
 function normalizeState(state = {}) {
-  return {
+  const normalized = {
     ...DEFAULT_STATE,
     ...state,
     workers: Array.isArray(state.workers) ? state.workers : [],
@@ -65,12 +66,18 @@ function normalizeState(state = {}) {
     workRecords: Array.isArray(state.workRecords) ? state.workRecords : [],
     deductions: Array.isArray(state.deductions) ? state.deductions : [],
     credits: Array.isArray(state.credits) ? state.credits : [],
+    creditItems: Array.isArray(state.creditItems) ? state.creditItems : [],
     users: Array.isArray(state.users) ? state.users : [],
     attendance: Array.isArray(state.attendance) ? state.attendance : [],
     loans: Array.isArray(state.loans) ? state.loans : [],
     auditLogs: Array.isArray(state.auditLogs) ? state.auditLogs : [],
     settings: { ...DEFAULT_STATE.settings, ...(state.settings || {}) },
   };
+  if (!normalized.users.some((user) => user.role === "main-admin")) {
+    const firstAdmin = normalized.users.find((user) => user.role === "admin" && user.status === "active");
+    if (firstAdmin) firstAdmin.role = "main-admin";
+  }
+  return normalized;
 }
 
 function sanitizeUser(user) {
