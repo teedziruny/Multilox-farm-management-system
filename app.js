@@ -94,6 +94,10 @@ const els = {
   bulkWorkType: document.getElementById("bulkWorkType"),
   bulkWorkRate: document.getElementById("bulkWorkRate"),
   bulkWorkHours: document.getElementById("bulkWorkHours"),
+  bulkWorkSharedQuantity: document.getElementById("bulkWorkSharedQuantity"),
+  bulkSelectAllBtn: document.getElementById("bulkSelectAllBtn"),
+  bulkClearAllBtn: document.getElementById("bulkClearAllBtn"),
+  bulkApplyQuantityBtn: document.getElementById("bulkApplyQuantityBtn"),
   bulkWorkTable: document.getElementById("bulkWorkTable"),
   recentWorkTable: document.getElementById("recentWorkTable"),
   metricActiveWorkers: document.getElementById("metricActiveWorkers"),
@@ -180,7 +184,7 @@ const els = {
   accountsTable: document.getElementById("accountsTable"),
 };
 
-els.workDate.value = todayIso;
+if (els.workDate) els.workDate.value = todayIso;
 els.bulkWorkDate.value = todayIso;
 els.payrollMonth.value = currentMonth;
 els.creditDate.value = todayIso;
@@ -586,12 +590,12 @@ function renderWorkOptions() {
   const workerOptions = activeWorkers().map((worker) => `
     <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
-  els.workWorker.innerHTML = workerOptions;
+  if (els.workWorker) els.workWorker.innerHTML = workerOptions;
 
   const activeRateOptions = activeRates().map((rate) => `
     <option value="${esc(rate.id)}">${esc(rate.workType)} (${money(rate.amount)} / ${esc(rate.unit)})</option>
   `).join("");
-  els.workType.innerHTML = activeRateOptions;
+  if (els.workType) els.workType.innerHTML = activeRateOptions;
   els.bulkWorkType.innerHTML = activeRateOptions;
   els.workFilterType.innerHTML = `<option value="">All work types</option>${state.rates.map((rate) => `
     <option value="${esc(rate.workType)}">${esc(rate.workType)}</option>
@@ -633,6 +637,16 @@ function renderBulkWorkRegister() {
       <td><input class="bulk-work-comments" placeholder="Optional" /></td>
     </tr>
   `).join("") || emptyRow(5, "Add active workers before using the bulk register.");
+  els.bulkWorkTable.querySelectorAll(".bulk-work-present").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const row = checkbox.closest("tr");
+      const quantityInput = row.querySelector(".bulk-work-qty");
+      if (checkbox.checked && Number(quantityInput.value || 0) === 0 && Number(els.bulkWorkSharedQuantity.value || 0) > 0) {
+        quantityInput.value = els.bulkWorkSharedQuantity.value;
+        row.querySelector(".bulk-work-total").textContent = money(cents(Number(quantityInput.value || 0) * rateAmount));
+      }
+    });
+  });
   els.bulkWorkTable.querySelectorAll(".bulk-work-qty").forEach((input) => {
     input.addEventListener("input", () => {
       const row = input.closest("tr");
@@ -1138,6 +1152,7 @@ function renderSettings() {
 }
 
 function syncSelectedRate() {
+  if (!els.workType || !els.workRate) return;
   const rate = getRate(els.workType.value);
   if (rate) {
     els.workRate.value = rate.amount;
@@ -1157,6 +1172,7 @@ function syncBulkSelectedRate() {
 }
 
 function syncWorkTotal() {
+  if (!els.workQuantity || !els.workRate || !els.workTotal) return;
   const total = cents(Number(els.workQuantity.value || 0) * Number(els.workRate.value || 0));
   els.workTotal.value = money(total);
 }
@@ -1685,14 +1701,35 @@ els.accountForm.addEventListener("submit", async (event) => {
   renderAll();
 });
 
-els.workType.addEventListener("change", syncSelectedRate);
-els.workQuantity.addEventListener("input", syncWorkTotal);
-els.workRate.addEventListener("input", syncWorkTotal);
+els.workType?.addEventListener("change", syncSelectedRate);
+els.workQuantity?.addEventListener("input", syncWorkTotal);
+els.workRate?.addEventListener("input", syncWorkTotal);
 els.bulkWorkType.addEventListener("change", () => {
   syncBulkSelectedRate();
   renderBulkWorkRegister();
 });
 els.bulkWorkRate.addEventListener("input", syncBulkSelectedRate);
+els.bulkSelectAllBtn.addEventListener("click", () => {
+  els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]").forEach((row) => {
+    row.querySelector(".bulk-work-present").checked = true;
+  });
+});
+els.bulkClearAllBtn.addEventListener("click", () => {
+  els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]").forEach((row) => {
+    row.querySelector(".bulk-work-present").checked = false;
+    row.querySelector(".bulk-work-qty").value = 0;
+    row.querySelector(".bulk-work-total").textContent = money(0);
+  });
+});
+els.bulkApplyQuantityBtn.addEventListener("click", () => {
+  const quantity = Number(els.bulkWorkSharedQuantity.value || 0);
+  const rateAmount = Number(els.bulkWorkRate.value || 0);
+  els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]").forEach((row) => {
+    if (!row.querySelector(".bulk-work-present").checked) return;
+    row.querySelector(".bulk-work-qty").value = quantity;
+    row.querySelector(".bulk-work-total").textContent = money(cents(quantity * rateAmount));
+  });
+});
 els.bulkWorkForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const rate = getRate(els.bulkWorkType.value);
@@ -1739,9 +1776,10 @@ els.bulkWorkForm.addEventListener("submit", async (event) => {
     return;
   }
   await saveState();
+  els.bulkWorkSharedQuantity.value = 0;
   renderAll();
 });
-els.workForm.addEventListener("submit", async (event) => {
+els.workForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const rate = getRate(els.workType.value);
   const quantity = Number(els.workQuantity.value);

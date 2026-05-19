@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=6" />
+    <link rel="stylesheet" href="styles.css?v=7" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
@@ -30,6 +30,7 @@
       </div>
 
       <form class="login-card app-hidden" id="loginForm">
+        <img class="login-card-photo" src="assets/farm/farm-4.jpg" alt="Farm field" />
         <div class="brand login-brand">
           <div class="brand-mark">ML</div>
           <div>
@@ -55,6 +56,7 @@
       </form>
 
       <form class="login-card app-hidden" id="setupForm">
+        <img class="login-card-photo" src="assets/farm/farm-4.jpg" alt="Farm field" />
         <div class="brand login-brand">
           <div class="brand-mark">ML</div>
           <div>
@@ -125,6 +127,10 @@
         </header>
 
         <section class="view active" id="dashboard">
+          <section class="farm-banner">
+            <img src="assets/farm/farm-4.jpg" alt="Farm workers in the field" />
+          </section>
+
           <div class="metric-grid">
             <div class="metric-card">
               <span>Active workers</span>
@@ -260,6 +266,12 @@
                 <label>Work type<select id="bulkWorkType" required></select></label>
                 <label>Rate<input id="bulkWorkRate" type="number" min="0" step="0.01" required /></label>
                 <label>Default hours<input id="bulkWorkHours" type="number" min="0" step="0.5" value="8" /></label>
+                <label>Quantity for selected workers<input id="bulkWorkSharedQuantity" type="number" min="0" step="0.01" value="0" /></label>
+              </div>
+              <div class="form-actions">
+                <button class="secondary-button" id="bulkSelectAllBtn" type="button">Tick all workers</button>
+                <button class="secondary-button" id="bulkClearAllBtn" type="button">Clear ticks</button>
+                <button class="secondary-button" id="bulkApplyQuantityBtn" type="button">Apply quantity to selected</button>
               </div>
               <div class="table-wrap bulk-table-wrap">
                 <table>
@@ -281,25 +293,7 @@
             </form>
           </section>
 
-          <div class="split-layout">
-            <form class="panel form-panel" id="workForm">
-              <div class="panel-header">
-                <h2>Record Daily Work</h2>
-              </div>
-              <div class="form-grid">
-                <label>Worker<select id="workWorker" required></select></label>
-                <label>Date<input id="workDate" type="date" required /></label>
-                <label>Work type<select id="workType" required></select></label>
-                <label>Quantity completed<input id="workQuantity" type="number" min="0" step="0.01" required /></label>
-                <label>Rate<input id="workRate" type="number" min="0" step="0.01" required /></label>
-                <label>Total earned<input id="workTotal" readonly /></label>
-                <label class="wide">Supervisor comments<input id="workComments" /></label>
-              </div>
-              <div class="form-actions">
-                <button type="submit">Save work record</button>
-              </div>
-            </form>
-
+          <div>
             <section class="panel">
               <div class="panel-header">
                 <h2>Work History</h2>
@@ -791,6 +785,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
   </body>
 </html>

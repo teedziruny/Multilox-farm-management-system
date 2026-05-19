@@ -264,6 +264,14 @@ tbody tr:hover {
   overflow: hidden;
 }
 
+.login-card-photo {
+  width: calc(100% + 56px);
+  height: 150px;
+  margin: -28px -28px 4px;
+  object-fit: cover;
+  display: block;
+}
+
 .login-card::before {
   content: "";
   position: absolute;
@@ -575,6 +583,21 @@ tbody tr:hover {
 
 .farm-tile-large {
   min-height: 220px;
+}
+
+.farm-banner {
+  height: 260px;
+  border: 1px solid rgba(216, 231, 210, 0.8);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.farm-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .bulk-table-wrap {
