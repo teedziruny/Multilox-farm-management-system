@@ -8,6 +8,8 @@ const API_SETUP_URL = "/api/setup";
 const API_ACCOUNTS_URL = "/api/accounts";
 const API_RECOVER_URL = "/api/recover";
 const API_RECOVERY_URL = "/api/recovery";
+const API_BACKUPS_URL = "/api/backups";
+const API_BACKUP_RESTORE_URL = "/api/backups/restore";
 const FARM_NAME = "Multilox";
 const DEFAULT_SETTINGS = { farmName: FARM_NAME, currency: "USD", logoDataUrl: "" };
 const SESSION_TIMEOUT_MS = 90 * 1000;
@@ -113,6 +115,7 @@ const els = {
   bulkClearAllBtn: document.getElementById("bulkClearAllBtn"),
   bulkApplyQuantityBtn: document.getElementById("bulkApplyQuantityBtn"),
   bulkWorkTable: document.getElementById("bulkWorkTable"),
+  bulkWorkMessage: document.getElementById("bulkWorkMessage"),
   recentWorkTable: document.getElementById("recentWorkTable"),
   metricActiveWorkers: document.getElementById("metricActiveWorkers"),
   metricTodayCost: document.getElementById("metricTodayCost"),
@@ -129,6 +132,7 @@ const els = {
   payslipPanel: document.getElementById("payslipPanel"),
   payslipPreview: document.getElementById("payslipPreview"),
   printPayslipBtn: document.getElementById("printPayslipBtn"),
+  printReportsBtn: document.getElementById("printReportsBtn"),
   dailyReport: document.getElementById("dailyReport"),
   productivityReport: document.getElementById("productivityReport"),
   expensesReport: document.getElementById("expensesReport"),
@@ -172,8 +176,17 @@ const els = {
   loanFilterWorker: document.getElementById("loanFilterWorker"),
   loanFilterStatus: document.getElementById("loanFilterStatus"),
   loansTable: document.getElementById("loansTable"),
+  deductionForm: document.getElementById("deductionForm"),
+  deductionId: document.getElementById("deductionId"),
+  deductionWorker: document.getElementById("deductionWorker"),
+  deductionMonth: document.getElementById("deductionMonth"),
+  deductionReason: document.getElementById("deductionReason"),
+  deductionAmount: document.getElementById("deductionAmount"),
+  cancelDeductionEdit: document.getElementById("cancelDeductionEdit"),
+  deductionsTable: document.getElementById("deductionsTable"),
   departmentReport: document.getElementById("departmentReport"),
   attendanceReport: document.getElementById("attendanceReport"),
+  activityReport: document.getElementById("activityReport"),
   settingsForm: document.getElementById("settingsForm"),
   settingsFarmName: document.getElementById("settingsFarmName"),
   settingsCurrency: document.getElementById("settingsCurrency"),
@@ -189,6 +202,10 @@ const els = {
   resetCredits: document.getElementById("resetCredits"),
   resetCreditItems: document.getElementById("resetCreditItems"),
   resetLoans: document.getElementById("resetLoans"),
+  resetDeductions: document.getElementById("resetDeductions"),
+  resetConfirmText: document.getElementById("resetConfirmText"),
+  refreshBackupsBtn: document.getElementById("refreshBackupsBtn"),
+  backupList: document.getElementById("backupList"),
   accountForm: document.getElementById("accountForm"),
   accountName: document.getElementById("accountName"),
   accountUsername: document.getElementById("accountUsername"),
@@ -215,6 +232,7 @@ if (els.attendanceDate) els.attendanceDate.value = todayIso;
 els.attendanceFilterMonth.value = currentMonth;
 els.loanDate.value = todayIso;
 els.loanStartMonth.value = currentMonth;
+els.deductionMonth.value = currentMonth;
 
 function loadState() {
   const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
@@ -358,6 +376,15 @@ async function apiPost(url, payload = {}) {
     body: JSON.stringify(payload),
     credentials: "same-origin",
   });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+  return data;
+}
+
+async function apiGet(url) {
+  const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error || "Request failed");
@@ -510,11 +537,14 @@ function renderAll() {
   renderCredits();
   renderLoanOptions();
   renderLoans();
+  renderDeductionOptions();
+  renderDeductions();
   renderPayroll();
   renderDashboard();
   renderReports();
   renderSettings();
   renderAccounts();
+  renderBackups();
 }
 
 function renderAuth() {
@@ -536,15 +566,21 @@ function renderAuth() {
 function renderRoleAccess() {
   const role = currentUser?.role || els.roleSelect.value;
   const isSupervisor = isSupervisorRole(role);
+  const isMainAdmin = role === "main-admin";
   document.querySelector('[data-view="rates"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="credits"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="loans"]').classList.toggle("hidden-for-role", isSupervisor);
+  document.querySelector('[data-view="deductions"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="payroll"]').classList.toggle("hidden-for-role", isSupervisor);
   document.querySelector('[data-view="reports"]').classList.toggle("hidden-for-role", isSupervisor);
-  document.querySelector('[data-view="settings"]').classList.toggle("hidden-for-role", isSupervisor);
-  document.querySelector('[data-view="accounts"]').classList.toggle("hidden-for-role", isSupervisor);
+  document.querySelector('[data-view="settings"]').classList.toggle("hidden-for-role", isSupervisor || role === "admin");
+  document.querySelector('[data-view="accounts"]').classList.toggle("hidden-for-role", !isMainAdmin);
+  document.querySelectorAll(".main-admin-only").forEach((item) => item.classList.toggle("app-hidden", !isMainAdmin));
   els.seedDataBtn.disabled = isSupervisor;
-  if (isSupervisor && ["rates", "credits", "loans", "payroll", "reports", "settings", "accounts"].includes(document.querySelector(".view.active")?.id)) {
+  if (isSupervisor && ["rates", "credits", "loans", "deductions", "payroll", "reports", "settings", "accounts"].includes(document.querySelector(".view.active")?.id)) {
+    setView("work-register");
+  }
+  if (role === "admin" && ["settings", "accounts"].includes(document.querySelector(".view.active")?.id)) {
     setView("work-register");
   }
 }
@@ -643,6 +679,12 @@ function renderAttendanceOptions() {
 
 function renderLoanOptions() {
   els.loanWorker.innerHTML = activeWorkers().map((worker) => `
+    <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
+  `).join("");
+}
+
+function renderDeductionOptions() {
+  els.deductionWorker.innerHTML = activeWorkers().map((worker) => `
     <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
 }
@@ -838,6 +880,28 @@ function renderLoans() {
       </tr>
     `;
   }).join("") || emptyRow(8, "No loans or advances recorded.");
+}
+
+function renderDeductions() {
+  els.deductionsTable.innerHTML = state.deductions
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .map((deduction) => {
+      const worker = getWorker(deduction.workerId);
+      return `
+        <tr>
+          <td>${esc(deduction.month)}</td>
+          <td>${worker ? `${esc(worker.employeeNumber)}<br /><strong>${esc(worker.fullName)}</strong>` : "Deleted worker"}</td>
+          <td>${esc(deduction.reason || "Other deduction")}</td>
+          <td><strong>${money(deduction.amount)}</strong></td>
+          <td>
+            <div class="row-actions">
+              <button type="button" data-edit-deduction="${esc(deduction.id)}">Edit</button>
+              <button class="danger-button" type="button" data-delete-deduction="${esc(deduction.id)}">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("") || emptyRow(5, "No other deductions recorded.");
 }
 
 function renderDashboard() {
@@ -1082,6 +1146,7 @@ function renderReports() {
     label: status,
     value: records.length,
   })).sort((a, b) => b.value - a.value);
+  const activityRows = (state.auditLogs || []).slice(0, 20);
 
   els.dailyReport.innerHTML = daily.map((row) => summaryRow(row.label, money(row.value))).join("") || emptySummary("No daily costs yet.");
   els.productivityReport.innerHTML = productivity.map((row) => summaryRow(row.label, `${row.value} units | ${money(row.total)}`)).join("") || emptySummary("No productivity records yet.");
@@ -1092,6 +1157,7 @@ function renderReports() {
   els.creditReport.innerHTML = creditRows.map((row) => summaryRow(row.label, money(row.value))).join("") || emptySummary("No credit deductions yet.");
   els.departmentReport.innerHTML = departmentRows.map((row) => summaryRow(row.label, money(row.value))).join("") || emptySummary("No department labor costs yet.");
   els.attendanceReport.innerHTML = attendanceRows.map((row) => summaryRow(row.label, `${row.value} records`)).join("") || emptySummary("No attendance records yet.");
+  els.activityReport.innerHTML = activityRows.map((log) => summaryRow(`${new Date(log.at).toLocaleString()} | ${log.username}`, log.action)).join("") || emptySummary("No activity recorded yet.");
 }
 
 function groupBy(items, key) {
@@ -1151,6 +1217,12 @@ function resetLoanForm() {
   els.loanStartMonth.value = currentMonth;
 }
 
+function resetDeductionForm() {
+  els.deductionForm.reset();
+  els.deductionId.value = "";
+  els.deductionMonth.value = currentMonth;
+}
+
 function renderAccounts() {
   els.accountsTable.innerHTML = state.users.map((user) => `
     <tr>
@@ -1173,6 +1245,25 @@ function renderSettings() {
   els.settingsLogoPreview.innerHTML = state.settings.logoDataUrl
     ? `<img src="${esc(safeImageDataUrl(state.settings.logoDataUrl))}" alt="${esc(state.settings.farmName || FARM_NAME)} logo" />`
     : "No logo uploaded";
+}
+
+async function renderBackups() {
+  if (currentUser?.role !== "main-admin") return;
+  try {
+    const data = await apiGet(API_BACKUPS_URL);
+    els.backupList.innerHTML = data.backups.map((backup) => `
+      <div class="summary-row">
+        <span>${esc(backup.name)}<br />${esc(new Date(backup.createdAt).toLocaleString())}</span>
+        <strong>${Math.round(backup.size / 1024)} KB</strong>
+        <div class="row-actions">
+          <a class="button-link" href="${API_BACKUPS_URL}/download/${encodeURIComponent(backup.name)}">Download</a>
+          <button class="danger-button" type="button" data-restore-backup="${esc(backup.name)}">Restore</button>
+        </div>
+      </div>
+    `).join("") || emptySummary("No backups found yet.");
+  } catch (error) {
+    els.backupList.innerHTML = emptySummary(error.message);
+  }
 }
 
 function syncSelectedRate() {
@@ -1410,9 +1501,14 @@ els.selectiveResetBtn.addEventListener("click", async () => {
     ["credits", els.resetCredits.checked],
     ["creditItems", els.resetCreditItems.checked],
     ["loans", els.resetLoans.checked],
+    ["deductions", els.resetDeductions.checked],
   ].filter(([, checked]) => checked).map(([key]) => key);
   if (!selected.length) {
     alert("Choose at least one data section to reset.");
+    return;
+  }
+  if (els.resetConfirmText.value.trim() !== "RESET SELECTED") {
+    alert("Type RESET SELECTED to confirm.");
     return;
   }
   if (!confirm(`Reset only these sections?\n\n${selected.join(", ")}`)) return;
@@ -1424,11 +1520,13 @@ els.selectiveResetBtn.addEventListener("click", async () => {
     state.attendance = [];
     state.credits = [];
     state.loans = [];
+    state.deductions = [];
   }
   await saveState();
-  [els.resetWorkers, els.resetRates, els.resetWorkRecords, els.resetAttendance, els.resetCredits, els.resetCreditItems, els.resetLoans].forEach((checkbox) => {
+  [els.resetWorkers, els.resetRates, els.resetWorkRecords, els.resetAttendance, els.resetCredits, els.resetCreditItems, els.resetLoans, els.resetDeductions].forEach((checkbox) => {
     checkbox.checked = false;
   });
+  els.resetConfirmText.value = "";
   renderAll();
 });
 
@@ -1737,6 +1835,46 @@ els.cancelLoanEdit.addEventListener("click", resetLoanForm);
   filter.addEventListener("input", renderLoans);
 });
 
+els.deductionForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const existing = state.deductions.find((deduction) => deduction.id === els.deductionId.value);
+  const deduction = {
+    id: existing?.id || id("deduction"),
+    workerId: els.deductionWorker.value,
+    month: els.deductionMonth.value,
+    reason: els.deductionReason.value.trim(),
+    amount: cents(Number(els.deductionAmount.value || 0)),
+  };
+  if (existing) {
+    Object.assign(existing, deduction);
+  } else {
+    state.deductions.push(deduction);
+  }
+  await saveState();
+  resetDeductionForm();
+  renderAll();
+});
+
+els.deductionsTable.addEventListener("click", async (event) => {
+  const editId = event.target.dataset.editDeduction;
+  const deleteId = event.target.dataset.deleteDeduction;
+  if (editId) {
+    const deduction = state.deductions.find((item) => item.id === editId);
+    els.deductionId.value = deduction.id;
+    els.deductionWorker.value = deduction.workerId;
+    els.deductionMonth.value = deduction.month;
+    els.deductionReason.value = deduction.reason;
+    els.deductionAmount.value = deduction.amount;
+  }
+  if (deleteId && confirm("Delete this deduction?")) {
+    state.deductions = state.deductions.filter((deduction) => deduction.id !== deleteId);
+    await saveState();
+    renderAll();
+  }
+});
+
+els.cancelDeductionEdit.addEventListener("click", resetDeductionForm);
+
 els.accountForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   els.accountMessage.textContent = "";
@@ -1784,6 +1922,22 @@ els.recoverySettingsForm.addEventListener("submit", async (event) => {
   }
   els.settingsRecoveryCode.value = "";
   els.recoverySettingsMessage.textContent = "Recovery details saved.";
+  renderAll();
+});
+
+els.refreshBackupsBtn.addEventListener("click", renderBackups);
+els.backupList.addEventListener("click", async (event) => {
+  const backupName = event.target.dataset.restoreBackup;
+  if (!backupName) return;
+  if (!confirm(`Restore backup ${backupName}? Current data will be backed up first.`)) return;
+  try {
+    const restoredState = await apiPost(API_BACKUP_RESTORE_URL, { name: backupName });
+    mergeState(restoredState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
   renderAll();
 });
 
@@ -1862,6 +2016,10 @@ els.bulkWorkForm.addEventListener("submit", async (event) => {
     return;
   }
   await saveState();
+  const totalCost = cents([...els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]")]
+    .filter((row) => row.querySelector(".bulk-work-present").checked)
+    .reduce((sum, row) => sum + Number(row.querySelector(".bulk-work-qty").value || 0) * rateAmount, 0));
+  els.bulkWorkMessage.textContent = `${saved} worker(s) registered for ${rate?.workType || "this work"} | Total labor cost ${money(totalCost)}. Choose another work type to register a different group.`;
   els.bulkWorkSharedQuantity.value = 0;
   renderAll();
 });
@@ -1909,6 +2067,11 @@ els.printPayslipBtn.addEventListener("click", () => {
   els.payslipPanel.classList.add("print-target");
   window.print();
   els.payslipPanel.classList.remove("print-target");
+});
+els.printReportsBtn.addEventListener("click", () => {
+  document.querySelector("#reports").classList.add("print-target");
+  window.print();
+  document.querySelector("#reports").classList.remove("print-target");
 });
 
 els.settingsForm.addEventListener("submit", (event) => {
@@ -1997,6 +2160,9 @@ document.querySelectorAll("[data-export]").forEach((button) => {
     if (type === "attendance-summary-excel") {
       downloadExcel("attendance-summary.xls", [["Status", "Records"], ...groupBy(state.attendance, "status").map(([status, records]) => [status, records.length])]);
     }
+    if (type === "activity-excel") {
+      downloadExcel("activity-log.xls", [["Date", "User", "Role", "Action"], ...(state.auditLogs || []).map((log) => [log.at, log.username, log.role, log.action])]);
+    }
   });
 });
 
@@ -2005,6 +2171,7 @@ resetRateForm();
 resetCreditForm();
 resetAttendanceForm();
 resetLoanForm();
+resetDeductionForm();
 initializeApp();
 
 async function initializeApp() {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=9" />
+    <link rel="stylesheet" href="styles.css?v=10" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
@@ -125,6 +125,7 @@
           <button class="nav-button" data-view="rates">Work Rates</button>
           <button class="nav-button" data-view="credits">Credits</button>
           <button class="nav-button" data-view="loans">Loans</button>
+          <button class="nav-button" data-view="deductions">Deductions</button>
           <button class="nav-button" data-view="payroll">Payroll</button>
           <button class="nav-button" data-view="reports">Reports</button>
           <button class="nav-button" data-view="settings">Settings</button>
@@ -322,6 +323,7 @@
               <div class="form-actions">
                 <button type="submit">Save this work group</button>
               </div>
+              <p class="form-message" id="bulkWorkMessage"></p>
             </form>
           </section>
 
@@ -672,7 +674,53 @@
           </section>
         </section>
 
+        <section class="view" id="deductions">
+          <div class="split-layout">
+            <form class="panel form-panel" id="deductionForm">
+              <div class="panel-header">
+                <h2>Other Deduction</h2>
+              </div>
+              <input type="hidden" id="deductionId" />
+              <div class="form-grid">
+                <label>Worker<select id="deductionWorker" required></select></label>
+                <label>Payroll month<input id="deductionMonth" type="month" required /></label>
+                <label>Reason<input id="deductionReason" placeholder="Uniform, penalty, damages" required /></label>
+                <label>Amount<input id="deductionAmount" type="number" min="0" step="0.01" required /></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Save deduction</button>
+                <button class="secondary-button" id="cancelDeductionEdit" type="button">Cancel</button>
+              </div>
+            </form>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Other Deductions</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Worker</th>
+                      <th>Reason</th>
+                      <th>Amount</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deductionsTable"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
         <section class="view" id="reports">
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Report Pack</h2>
+              <button class="secondary-button" id="printReportsBtn" type="button">Print reports</button>
+            </div>
+          </section>
           <div class="report-grid">
             <section class="panel">
               <div class="panel-header">
@@ -715,6 +763,13 @@
                 <button class="secondary-button" data-export="attendance-summary-excel">Export Excel</button>
               </div>
               <div id="attendanceReport" class="stack"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h2>Activity Log</h2>
+                <button class="secondary-button" data-export="activity-excel">Export Excel</button>
+              </div>
+              <div id="activityReport" class="stack"></div>
             </section>
           </div>
         </section>
@@ -764,10 +819,21 @@
               <label><input id="resetCredits" type="checkbox" /> Credit records</label>
               <label><input id="resetCreditItems" type="checkbox" /> Credit item price list</label>
               <label><input id="resetLoans" type="checkbox" /> Loans</label>
+              <label><input id="resetDeductions" type="checkbox" /> Other deductions</label>
+            </div>
+            <div class="form-grid">
+              <label class="wide">Type RESET SELECTED to confirm<input id="resetConfirmText" /></label>
             </div>
             <div class="form-actions">
               <button class="danger-button" id="selectiveResetBtn" type="button">Reset selected data</button>
             </div>
+          </section>
+          <section class="panel main-admin-only">
+            <div class="panel-header">
+              <h2>Backups</h2>
+              <button class="secondary-button" id="refreshBackupsBtn" type="button">Refresh</button>
+            </div>
+            <div id="backupList" class="stack"></div>
           </section>
         </section>
 
@@ -832,6 +898,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>

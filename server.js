@@ -349,6 +349,22 @@ function safeStaticPath(urlPath) {
   return fullPath;
 }
 
+function isSafeBackupName(name) {
+  return /^db-\d{4}-\d{2}-\d{2}T[\w-]+\.json$/.test(String(name || ""));
+}
+
+async function listBackups() {
+  await fs.mkdir(BACKUP_DIR, { recursive: true });
+  const names = (await fs.readdir(BACKUP_DIR))
+    .filter(isSafeBackupName)
+    .sort()
+    .reverse();
+  return Promise.all(names.map(async (name) => {
+    const stats = await fs.stat(path.join(BACKUP_DIR, name));
+    return { name, size: stats.size, createdAt: stats.mtime.toISOString() };
+  }));
+}
+
 async function serveStatic(request, response) {
   const filePath = safeStaticPath(request.url);
   if (!filePath) {
@@ -511,6 +527,24 @@ async function handleRecoverAccount(request, response) {
   sendJson(response, 200, { ok: true });
 }
 
+async function handleBackupRestore(request, response, session) {
+  if (session.role !== "main-admin") {
+    sendJson(response, 403, { error: "Only the Main Admin can restore backups" });
+    return;
+  }
+  const body = await readJsonBody(request);
+  if (!isSafeBackupName(body.name)) {
+    sendJson(response, 400, { error: "Invalid backup name" });
+    return;
+  }
+  const backupPath = path.join(BACKUP_DIR, body.name);
+  const raw = await fs.readFile(backupPath, "utf8");
+  const restored = normalizeState(JSON.parse(raw || "{}"));
+  audit(restored, session, "restored-backup", { backup: body.name });
+  await writeState(restored);
+  sendJson(response, 200, sanitizeState(restored));
+}
+
 function mergeSupervisorChanges(currentState, incomingState) {
   const mergeByIdNoDelete = (currentItems, incomingItems) => {
     const map = new Map(currentItems.map((item) => [item.id, item]));
@@ -605,6 +639,47 @@ const server = http.createServer(async (request, response) => {
       const session = requireSession(request, response);
       if (!session) return;
       await handleUpdateRecovery(request, response, session);
+      return;
+    }
+
+    if (request.url === "/api/backups" && request.method === "GET") {
+      const session = requireSession(request, response);
+      if (!session) return;
+      if (session.role !== "main-admin") {
+        sendJson(response, 403, { error: "Only the Main Admin can view backups" });
+        return;
+      }
+      sendJson(response, 200, { backups: await listBackups() });
+      return;
+    }
+
+    if (request.url === "/api/backups/restore" && request.method === "POST") {
+      const session = requireSession(request, response);
+      if (!session) return;
+      await handleBackupRestore(request, response, session);
+      return;
+    }
+
+    if (request.url.startsWith("/api/backups/download/") && request.method === "GET") {
+      const session = requireSession(request, response);
+      if (!session) return;
+      if (session.role !== "main-admin") {
+        sendJson(response, 403, { error: "Only the Main Admin can download backups" });
+        return;
+      }
+      const name = decodeURIComponent(request.url.split("/").pop().split("?")[0]);
+      if (!isSafeBackupName(name)) {
+        sendText(response, 400, "Invalid backup name");
+        return;
+      }
+      const content = await fs.readFile(path.join(BACKUP_DIR, name));
+      response.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${name}"`,
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      response.end(content);
       return;
     }
 
