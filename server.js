@@ -328,6 +328,7 @@ async function serveStatic(request, response) {
     const ext = path.extname(filePath).toLowerCase();
     response.writeHead(200, {
       "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
+      "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "same-origin",
       "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
