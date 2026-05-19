@@ -187,7 +187,7 @@ els.creditDate.value = todayIso;
 els.creditMonth.value = currentMonth;
 els.bulkCreditDate.value = todayIso;
 els.bulkCreditMonth.value = currentMonth;
-els.attendanceDate.value = todayIso;
+if (els.attendanceDate) els.attendanceDate.value = todayIso;
 els.attendanceFilterMonth.value = currentMonth;
 els.loanDate.value = todayIso;
 els.loanStartMonth.value = currentMonth;
@@ -610,6 +610,7 @@ function renderCreditOptions() {
 }
 
 function renderAttendanceOptions() {
+  if (!els.attendanceWorker) return;
   els.attendanceWorker.innerHTML = activeWorkers().map((worker) => `
     <option value="${esc(worker.id)}">${esc(worker.employeeNumber)} - ${esc(worker.fullName)}</option>
   `).join("");
@@ -719,7 +720,6 @@ function renderAttendance() {
         <td>${esc(record.notes || "")}</td>
         <td>
           <div class="row-actions">
-            <button type="button" data-edit-attendance="${esc(record.id)}">Edit</button>
             <button class="danger-button" type="button" data-delete-attendance="${esc(record.id)}">Delete</button>
           </div>
         </td>
@@ -1103,6 +1103,7 @@ function resetCreditForm() {
 }
 
 function resetAttendanceForm() {
+  if (!els.attendanceForm) return;
   els.attendanceForm.reset();
   els.attendanceId.value = "";
   els.attendanceDate.value = todayIso;
@@ -1405,7 +1406,7 @@ els.cancelWorkerEdit.addEventListener("click", resetWorkerForm);
 els.workerSearch.addEventListener("input", renderWorkers);
 els.workerDepartmentFilter.addEventListener("change", renderWorkers);
 
-els.attendanceForm.addEventListener("submit", (event) => {
+els.attendanceForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   const existing = state.attendance.find((record) => record.id === els.attendanceId.value);
   const record = {
@@ -1429,7 +1430,7 @@ els.attendanceForm.addEventListener("submit", (event) => {
 els.attendanceTable.addEventListener("click", (event) => {
   const editId = event.target.dataset.editAttendance;
   const deleteId = event.target.dataset.deleteAttendance;
-  if (editId) {
+  if (editId && els.attendanceForm) {
     const record = state.attendance.find((item) => item.id === editId);
     els.attendanceId.value = record.id;
     els.attendanceWorker.value = record.workerId;
@@ -1445,7 +1446,7 @@ els.attendanceTable.addEventListener("click", (event) => {
   }
 });
 
-els.cancelAttendanceEdit.addEventListener("click", resetAttendanceForm);
+els.cancelAttendanceEdit?.addEventListener("click", resetAttendanceForm);
 [els.attendanceFilterWorker, els.attendanceFilterMonth, els.attendanceFilterStatus].forEach((filter) => {
   filter.addEventListener("input", renderAttendance);
 });

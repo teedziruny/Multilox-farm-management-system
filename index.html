@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
+      <img class="login-photo-fixed" src="assets/farm/farm-4.jpg" alt="" aria-hidden="true" />
       <div class="farm-photo-reel" aria-hidden="true">
         <span><img src="assets/farm/farm-4.jpg" alt="" /></span>
         <span><img src="assets/farm/farm-2.jpg" alt="" /></span>
@@ -78,6 +79,7 @@
     </section>
 
     <div class="app-shell app-hidden" id="appShell">
+      <img class="app-background-photo" src="assets/farm/farm-3.jpg" alt="" aria-hidden="true" />
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark">ML</div>
@@ -89,8 +91,7 @@
         <nav class="nav" aria-label="Main navigation">
           <button class="nav-button active" data-view="dashboard">Dashboard</button>
           <button class="nav-button" data-view="workers">Workers</button>
-          <button class="nav-button" data-view="attendance">Attendance</button>
-          <button class="nav-button" data-view="work-register">Work Register</button>
+          <button class="nav-button" data-view="work-register">Daily Register</button>
           <button class="nav-button" data-view="rates">Work Rates</button>
           <button class="nav-button" data-view="credits">Credits</button>
           <button class="nav-button" data-view="loans">Loans</button>
@@ -152,10 +153,10 @@
           </div>
 
           <section class="dashboard-visual" aria-label="Multilox farm views">
-            <div class="farm-tile farm-tile-large"></div>
-            <div class="farm-tile"></div>
-            <div class="farm-tile"></div>
-            <div class="farm-tile"></div>
+            <div class="farm-tile farm-tile-large"><img src="assets/farm/farm-4.jpg" alt="Farm workers in the field" /></div>
+            <div class="farm-tile"><img src="assets/farm/farm-1.jpg" alt="Farm field view" /></div>
+            <div class="farm-tile"><img src="assets/farm/farm-2.jpg" alt="Farm operations" /></div>
+            <div class="farm-tile"><img src="assets/farm/farm-3.jpg" alt="Farm landscape" /></div>
           </section>
 
           <div class="content-grid">
@@ -248,72 +249,10 @@
           </div>
         </section>
 
-        <section class="view" id="attendance">
-          <div class="split-layout">
-            <form class="panel form-panel" id="attendanceForm">
-              <div class="panel-header">
-                <h2>Record Attendance</h2>
-              </div>
-              <input type="hidden" id="attendanceId" />
-              <div class="form-grid">
-                <label>Worker<select id="attendanceWorker" required></select></label>
-                <label>Date<input id="attendanceDate" type="date" required /></label>
-                <label>Status
-                  <select id="attendanceStatus">
-                    <option value="present">Present</option>
-                    <option value="absent">Absent</option>
-                    <option value="sick">Sick</option>
-                    <option value="leave">Leave</option>
-                  </select>
-                </label>
-                <label>Hours worked<input id="attendanceHours" type="number" min="0" step="0.5" value="8" /></label>
-                <label class="wide">Notes<input id="attendanceNotes" /></label>
-              </div>
-              <div class="form-actions">
-                <button type="submit">Save attendance</button>
-                <button class="secondary-button" id="cancelAttendanceEdit" type="button">Cancel</button>
-              </div>
-            </form>
-
-            <section class="panel">
-              <div class="panel-header">
-                <h2>Attendance History</h2>
-                <button class="secondary-button" data-export="attendance-excel">Export Excel</button>
-              </div>
-              <div class="filter-row">
-                <input id="attendanceFilterWorker" placeholder="Worker or employee no." />
-                <input id="attendanceFilterMonth" type="month" />
-                <select id="attendanceFilterStatus">
-                  <option value="">All statuses</option>
-                  <option value="present">Present</option>
-                  <option value="absent">Absent</option>
-                  <option value="sick">Sick</option>
-                  <option value="leave">Leave</option>
-                </select>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Worker</th>
-                      <th>Status</th>
-                      <th>Hours</th>
-                      <th>Notes</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="attendanceTable"></tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-        </section>
-
         <section class="view" id="work-register">
           <section class="panel">
             <div class="panel-header">
-              <h2>Daily Bulk Work Register</h2>
+              <h2>Daily Register</h2>
             </div>
             <form id="bulkWorkForm">
               <div class="form-grid">
@@ -337,7 +276,7 @@
                 </table>
               </div>
               <div class="form-actions">
-                <button type="submit">Save selected workers</button>
+                <button type="submit">Save this work group</button>
               </div>
             </form>
           </section>
@@ -387,6 +326,38 @@
               </div>
             </section>
           </div>
+          <section class="panel">
+            <div class="panel-header">
+              <h2>Attendance From Daily Register</h2>
+              <button class="secondary-button" data-export="attendance-excel">Export Excel</button>
+            </div>
+            <div class="filter-row">
+              <input id="attendanceFilterWorker" placeholder="Worker or employee no." />
+              <input id="attendanceFilterMonth" type="month" />
+              <select id="attendanceFilterStatus">
+                <option value="">All statuses</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="sick">Sick</option>
+                <option value="leave">Leave</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Worker</th>
+                    <th>Status</th>
+                    <th>Hours</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceTable"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <section class="view" id="rates">
@@ -820,6 +791,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>

@@ -144,12 +144,28 @@ tbody tr:hover {
 }
 
 .app-shell {
+  position: relative;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
   background:
     linear-gradient(rgba(246, 250, 243, 0.24), rgba(246, 250, 243, 0.36)),
     var(--farm-3) center / cover fixed no-repeat;
+}
+
+.app-background-photo,
+.login-photo-fixed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.app-background-photo {
+  position: fixed;
+  z-index: 0;
 }
 
 .login-screen {
@@ -163,6 +179,10 @@ tbody tr:hover {
     linear-gradient(120deg, rgba(5, 35, 15, 0.08), rgba(13, 80, 34, 0.03)),
     var(--farm-4) center / cover no-repeat;
   overflow: hidden;
+}
+
+.login-photo-fixed {
+  z-index: 0;
 }
 
 .farm-photo-reel {
@@ -179,7 +199,7 @@ tbody tr:hover {
   background-size: cover;
   opacity: 0;
   transform: scale(1.04);
-  animation: farmPhotoFade 32s linear infinite;
+  animation: none;
 }
 
 .farm-photo-reel img {
@@ -191,22 +211,20 @@ tbody tr:hover {
 
 .farm-photo-reel span:nth-child(1) {
   background-image: var(--farm-4);
-  animation-delay: 0s;
+  opacity: 1;
+  transform: none;
 }
 
 .farm-photo-reel span:nth-child(2) {
   background-image: var(--farm-2);
-  animation-delay: 8s;
 }
 
 .farm-photo-reel span:nth-child(3) {
   background-image: var(--farm-1);
-  animation-delay: 16s;
 }
 
 .farm-photo-reel span:nth-child(4) {
   background-image: var(--farm-3);
-  animation-delay: 24s;
 }
 
 .login-screen::before,
@@ -296,6 +314,7 @@ tbody tr:hover {
 }
 
 .sidebar {
+  z-index: 1;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -395,6 +414,7 @@ tbody tr:hover {
 }
 
 .main {
+  z-index: 1;
   min-width: 0;
   padding: 26px;
   animation: fadeUp 360ms ease both;
@@ -515,6 +535,14 @@ tbody tr:hover {
   box-shadow: var(--shadow);
   overflow: hidden;
   animation: tileFloat 8s ease-in-out infinite;
+}
+
+.farm-tile img {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  object-fit: cover;
+  display: block;
 }
 
 .farm-tile::after {
