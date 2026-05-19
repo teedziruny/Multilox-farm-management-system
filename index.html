@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
@@ -249,6 +249,8 @@
                 <label>Department/section<input id="workerDepartment" required /></label>
                 <label>Position/job title<input id="workerPosition" required /></label>
                 <label>Date employed<input id="workerDateEmployed" type="date" required /></label>
+                <label>Worker photo<input id="workerPhoto" type="file" accept="image/*" /></label>
+                <label>Worker document<input id="workerDocument" type="file" accept="image/*,.pdf" /></label>
                 <label>Status
                   <select id="workerStatus">
                     <option value="active">Active</option>
@@ -640,10 +642,12 @@
                 <input id="payrollMonth" type="month" />
                 <select id="payrollDepartmentFilter"><option value="">All departments</option></select>
                 <button id="runPayrollBtn" type="button">Calculate</button>
+                <button class="secondary-button" id="togglePayrollLockBtn" type="button">Lock month</button>
                 <button class="secondary-button" id="printPayrollBtn" type="button">Print summary</button>
                 <button class="secondary-button" data-export="payroll-excel" type="button">Export Excel</button>
               </div>
             </div>
+            <p class="form-message" id="payrollLockMessage"></p>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -833,7 +837,21 @@
               <h2>Backups</h2>
               <button class="secondary-button" id="refreshBackupsBtn" type="button">Refresh</button>
             </div>
+            <div class="form-actions">
+              <button id="exportFullBackupBtn" type="button">Export full backup</button>
+              <label class="button-link">Import backup<input class="sr-only" id="importFullBackupFile" type="file" accept="application/json,.json" /></label>
+            </div>
             <div id="backupList" class="stack"></div>
+          </section>
+          <section class="panel main-admin-only">
+            <div class="panel-header">
+              <h2>External Services</h2>
+            </div>
+            <div class="stack">
+              <div class="summary-row"><span>Database</span><strong id="databaseStatus">Local JSON file</strong></div>
+              <div class="summary-row"><span>Email/SMS OTP</span><strong>Not connected</strong></div>
+              <div class="summary-row"><span>Cloud backup</span><strong>Manual export/import ready</strong></div>
+            </div>
           </section>
         </section>
 
@@ -898,6 +916,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=11"></script>
   </body>
 </html>

@@ -106,6 +106,24 @@ input[type="checkbox"] {
   box-shadow: none;
 }
 
+.sr-only {
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.worker-thumb {
+  border-radius: 6px;
+  display: inline-block;
+  height: 38px;
+  margin-right: 8px;
+  object-fit: cover;
+  vertical-align: middle;
+  width: 38px;
+}
+
 input:focus,
 select:focus {
   border-color: var(--accent);

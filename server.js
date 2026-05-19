@@ -43,6 +43,7 @@ const DEFAULT_STATE = {
   users: [],
   attendance: [],
   loans: [],
+  payrollLocks: [],
   auditLogs: [],
   settings: { farmName: "Multilox", currency: "USD", logoDataUrl: "" },
 };
@@ -72,6 +73,7 @@ function normalizeState(state = {}) {
     users: Array.isArray(state.users) ? state.users : [],
     attendance: Array.isArray(state.attendance) ? state.attendance : [],
     loans: Array.isArray(state.loans) ? state.loans : [],
+    payrollLocks: Array.isArray(state.payrollLocks) ? state.payrollLocks : [],
     auditLogs: Array.isArray(state.auditLogs) ? state.auditLogs : [],
     settings: { ...DEFAULT_STATE.settings, ...(state.settings || {}) },
   };

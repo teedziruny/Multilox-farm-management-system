@@ -67,6 +67,8 @@ const els = {
   workerDepartment: document.getElementById("workerDepartment"),
   workerPosition: document.getElementById("workerPosition"),
   workerDateEmployed: document.getElementById("workerDateEmployed"),
+  workerPhoto: document.getElementById("workerPhoto"),
+  workerDocument: document.getElementById("workerDocument"),
   workerStatus: document.getElementById("workerStatus"),
   workersTable: document.getElementById("workersTable"),
   workerSearch: document.getElementById("workerSearch"),
@@ -127,6 +129,8 @@ const els = {
   payrollMonth: document.getElementById("payrollMonth"),
   payrollDepartmentFilter: document.getElementById("payrollDepartmentFilter"),
   runPayrollBtn: document.getElementById("runPayrollBtn"),
+  togglePayrollLockBtn: document.getElementById("togglePayrollLockBtn"),
+  payrollLockMessage: document.getElementById("payrollLockMessage"),
   printPayrollBtn: document.getElementById("printPayrollBtn"),
   payrollTable: document.getElementById("payrollTable"),
   payslipPanel: document.getElementById("payslipPanel"),
@@ -206,6 +210,9 @@ const els = {
   resetConfirmText: document.getElementById("resetConfirmText"),
   refreshBackupsBtn: document.getElementById("refreshBackupsBtn"),
   backupList: document.getElementById("backupList"),
+  exportFullBackupBtn: document.getElementById("exportFullBackupBtn"),
+  importFullBackupFile: document.getElementById("importFullBackupFile"),
+  databaseStatus: document.getElementById("databaseStatus"),
   accountForm: document.getElementById("accountForm"),
   accountName: document.getElementById("accountName"),
   accountUsername: document.getElementById("accountUsername"),
@@ -234,8 +241,12 @@ els.loanDate.value = todayIso;
 els.loanStartMonth.value = currentMonth;
 els.deductionMonth.value = currentMonth;
 
+function baseState() {
+  return { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], payrollLocks: [], settings: DEFAULT_SETTINGS };
+}
+
 function loadState() {
-  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
+  const fallback = baseState();
   try {
     const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY)) || fallback;
     return {
@@ -250,6 +261,7 @@ function loadState() {
       users: loaded.users || [],
       attendance: loaded.attendance || [],
       loans: loaded.loans || [],
+      payrollLocks: loaded.payrollLocks || [],
       settings: { ...DEFAULT_SETTINGS, ...(loaded.settings || {}) },
     };
   } catch {
@@ -301,7 +313,7 @@ async function syncToServer() {
 }
 
 function mergeState(nextState) {
-  const fallback = { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], settings: DEFAULT_SETTINGS };
+  const fallback = baseState();
   Object.assign(state, {
     ...fallback,
     ...nextState,
@@ -314,6 +326,7 @@ function mergeState(nextState) {
     users: nextState.users || [],
     attendance: nextState.attendance || [],
     loans: nextState.loans || [],
+    payrollLocks: nextState.payrollLocks || [],
     settings: { ...DEFAULT_SETTINGS, ...(nextState.settings || {}) },
   });
 }
@@ -333,6 +346,10 @@ function migrateState() {
   let changed = false;
   if (!Array.isArray(state.creditItems)) {
     state.creditItems = [];
+    changed = true;
+  }
+  if (!Array.isArray(state.payrollLocks)) {
+    state.payrollLocks = [];
     changed = true;
   }
   state.workRecords.forEach((record) => {
@@ -497,6 +514,29 @@ function employeeNumber() {
   return `EMP-${String(next).padStart(4, "0")}`;
 }
 
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve("");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function isPayrollLocked(month) {
+  return state.payrollLocks.some((lock) => lock.month === month);
+}
+
+function ensureUnlockedMonth(month, label = "This month") {
+  if (!isPayrollLocked(month)) return true;
+  alert(`${label} is locked. Unlock it in Payroll before changing records.`);
+  return false;
+}
+
 function getWorker(workerId) {
   return state.workers.find((worker) => worker.id === workerId);
 }
@@ -611,8 +651,10 @@ function renderWorkers() {
     <tr>
       <td>${esc(worker.employeeNumber)}</td>
       <td>
+        ${worker.photoDataUrl ? `<img class="worker-thumb" src="${esc(worker.photoDataUrl)}" alt="${esc(worker.fullName)}" />` : ""}
         <strong>${esc(worker.fullName)}</strong><br />
         <span>${esc(worker.phone || "No phone")}</span>
+        ${worker.documentDataUrl ? `<br /><a href="${esc(worker.documentDataUrl)}" download="${esc(worker.documentName || `${worker.employeeNumber}-document`)}">Document</a>` : ""}
       </td>
       <td>${esc(worker.department)}<br /><span>${esc(worker.position)}</span></td>
       <td><span class="status ${safeClass(worker.status, ["active", "inactive"])}">${esc(worker.status)}</span></td>
@@ -1017,6 +1059,9 @@ function creditsForWorkerMonth(workerId, month) {
 function renderPayroll() {
   const month = els.payrollMonth.value || currentMonth;
   const rows = payrollForMonth(month);
+  const locked = isPayrollLocked(month);
+  els.togglePayrollLockBtn.textContent = locked ? "Unlock month" : "Lock month";
+  els.payrollLockMessage.textContent = locked ? `${month} is locked. Records for this month are protected.` : `${month} is open for changes.`;
   els.payrollTable.innerHTML = rows.map((row) => `
     <tr>
       <td>${esc(row.worker.employeeNumber)}</td>
@@ -1245,6 +1290,7 @@ function renderSettings() {
   els.settingsLogoPreview.innerHTML = state.settings.logoDataUrl
     ? `<img src="${esc(safeImageDataUrl(state.settings.logoDataUrl))}" alt="${esc(state.settings.farmName || FARM_NAME)} logo" />`
     : "No logo uploaded";
+  els.databaseStatus.textContent = "Local JSON file; PostgreSQL ready when DATABASE_URL is configured";
 }
 
 async function renderBackups() {
@@ -1358,6 +1404,16 @@ function seedData() {
 function downloadCsv(filename, rows) {
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -1533,6 +1589,8 @@ els.selectiveResetBtn.addEventListener("click", async () => {
 els.workerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const existing = state.workers.find((worker) => worker.id === els.workerId.value);
+  const photoDataUrl = els.workerPhoto.files[0] ? await fileToDataUrl(els.workerPhoto.files[0]) : existing?.photoDataUrl || "";
+  const documentDataUrl = els.workerDocument.files[0] ? await fileToDataUrl(els.workerDocument.files[0]) : existing?.documentDataUrl || "";
   const worker = {
     id: existing?.id || id("worker"),
     employeeNumber: existing?.employeeNumber || employeeNumber(),
@@ -1544,6 +1602,9 @@ els.workerForm.addEventListener("submit", async (event) => {
     department: els.workerDepartment.value.trim(),
     position: els.workerPosition.value.trim(),
     dateEmployed: els.workerDateEmployed.value,
+    photoDataUrl,
+    documentDataUrl,
+    documentName: els.workerDocument.files[0]?.name || existing?.documentName || "",
     status: els.workerStatus.value,
   };
   if (existing) {
@@ -1571,6 +1632,8 @@ els.workersTable.addEventListener("click", (event) => {
     els.workerPosition.value = worker.position;
     els.workerDateEmployed.value = worker.dateEmployed;
     els.workerStatus.value = worker.status;
+    els.workerPhoto.value = "";
+    els.workerDocument.value = "";
     els.workerFormTitle.textContent = "Edit Worker";
   }
   if (deleteId && confirm("Delete this worker? Historical records will keep the employee reference.")) {
@@ -1701,6 +1764,7 @@ els.bulkCreditItemsTable.addEventListener("input", (event) => {
 
 els.bulkCreditForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!ensureUnlockedMonth(els.bulkCreditMonth.value, "Credit payroll month")) return;
   const selectedItems = [];
   els.bulkCreditItemsTable.querySelectorAll("tr[data-credit-item]").forEach((row) => {
     if (!row.querySelector(".bulk-credit-take").checked) return;
@@ -1737,6 +1801,7 @@ els.bulkCreditForm.addEventListener("submit", async (event) => {
 
 els.creditForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!ensureUnlockedMonth(els.creditMonth.value, "Credit payroll month")) return;
   const existing = state.credits.find((credit) => credit.id === els.creditId.value);
   const credit = {
     id: existing?.id || id("credit"),
@@ -1786,6 +1851,7 @@ els.cancelCreditEdit.addEventListener("click", resetCreditForm);
 
 els.loanForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!ensureUnlockedMonth(els.loanStartMonth.value, "Loan start month")) return;
   const existing = state.loans.find((loan) => loan.id === els.loanId.value);
   const loan = {
     id: existing?.id || id("loan"),
@@ -1837,6 +1903,7 @@ els.cancelLoanEdit.addEventListener("click", resetLoanForm);
 
 els.deductionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!ensureUnlockedMonth(els.deductionMonth.value, "Deduction month")) return;
   const existing = state.deductions.find((deduction) => deduction.id === els.deductionId.value);
   const deduction = {
     id: existing?.id || id("deduction"),
@@ -1926,6 +1993,27 @@ els.recoverySettingsForm.addEventListener("submit", async (event) => {
 });
 
 els.refreshBackupsBtn.addEventListener("click", renderBackups);
+els.exportFullBackupBtn.addEventListener("click", () => {
+  downloadJson(`multilox-full-backup-${new Date().toISOString().slice(0, 10)}.json`, state);
+});
+els.importFullBackupFile.addEventListener("change", () => {
+  const file = els.importFullBackupFile.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const imported = JSON.parse(reader.result);
+      mergeState(imported);
+      await saveState();
+      renderAll();
+    } catch (error) {
+      alert(`Import failed: ${error.message}`);
+    } finally {
+      els.importFullBackupFile.value = "";
+    }
+  };
+  reader.readAsText(file);
+});
 els.backupList.addEventListener("click", async (event) => {
   const backupName = event.target.dataset.restoreBackup;
   if (!backupName) return;
@@ -1976,6 +2064,7 @@ els.bulkWorkForm.addEventListener("submit", async (event) => {
   const date = els.bulkWorkDate.value;
   const rateAmount = Number(els.bulkWorkRate.value || 0);
   const hours = Number(els.bulkWorkHours.value || 0);
+  if (!ensureUnlockedMonth(date.slice(0, 7), "Daily register month")) return;
   let saved = 0;
   els.bulkWorkTable.querySelectorAll("tr[data-bulk-worker]").forEach((row) => {
     const present = row.querySelector(".bulk-work-present").checked;
@@ -2051,6 +2140,18 @@ els.workForm?.addEventListener("submit", async (event) => {
 els.payrollMonth.addEventListener("change", () => {
   renderPayroll();
   renderDashboard();
+});
+els.togglePayrollLockBtn.addEventListener("click", async () => {
+  const month = els.payrollMonth.value || currentMonth;
+  if (isPayrollLocked(month)) {
+    if (!confirm(`Unlock payroll month ${month}?`)) return;
+    state.payrollLocks = state.payrollLocks.filter((lock) => lock.month !== month);
+  } else {
+    if (!confirm(`Lock payroll month ${month}? This protects work, credits, loans, and deductions for that month.`)) return;
+    state.payrollLocks.push({ month, lockedAt: new Date().toISOString(), lockedBy: currentUser?.username || "unknown" });
+  }
+  await saveState();
+  renderAll();
 });
 els.payrollDepartmentFilter.addEventListener("change", renderPayroll);
 els.runPayrollBtn.addEventListener("click", renderPayroll);
