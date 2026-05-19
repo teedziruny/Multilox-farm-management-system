@@ -4,16 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Multilox Farm Management System</title>
-    <link rel="stylesheet" href="styles.css?v=7" />
+    <link rel="stylesheet" href="styles.css?v=8" />
   </head>
   <body>
     <section class="login-screen" id="loginScreen">
-      <img class="login-photo-fixed" src="assets/farm/farm-4.jpg" alt="" aria-hidden="true" />
-      <div class="farm-photo-reel" aria-hidden="true">
-        <span><img src="assets/farm/farm-4.jpg" alt="" /></span>
-        <span><img src="assets/farm/farm-2.jpg" alt="" /></span>
-        <span><img src="assets/farm/farm-1.jpg" alt="" /></span>
-        <span><img src="assets/farm/farm-3.jpg" alt="" /></span>
+      <div class="multilox-login-art" aria-hidden="true">
+        <span>Multilox</span>
+        <span>Multilox</span>
+        <span>Multilox</span>
       </div>
       <div class="login-card" id="loginLoading">
         <div class="brand login-brand">
@@ -30,7 +28,6 @@
       </div>
 
       <form class="login-card app-hidden" id="loginForm">
-        <img class="login-card-photo" src="assets/farm/farm-4.jpg" alt="Farm field" />
         <div class="brand login-brand">
           <div class="brand-mark">ML</div>
           <div>
@@ -56,7 +53,6 @@
       </form>
 
       <form class="login-card app-hidden" id="setupForm">
-        <img class="login-card-photo" src="assets/farm/farm-4.jpg" alt="Farm field" />
         <div class="brand login-brand">
           <div class="brand-mark">ML</div>
           <div>
@@ -81,7 +77,7 @@
     </section>
 
     <div class="app-shell app-hidden" id="appShell">
-      <img class="app-background-photo" src="assets/farm/farm-3.jpg" alt="" aria-hidden="true" />
+      <div class="app-field-art" aria-hidden="true"></div>
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-mark">ML</div>
@@ -128,7 +124,11 @@
 
         <section class="view active" id="dashboard">
           <section class="farm-banner">
-            <img src="assets/farm/farm-4.jpg" alt="Farm workers in the field" />
+            <div class="farm-scene" aria-hidden="true">
+              <div class="farm-sun"></div>
+              <div class="farm-hills"></div>
+              <div class="farm-field-lines"></div>
+            </div>
           </section>
 
           <div class="metric-grid">
@@ -159,10 +159,10 @@
           </div>
 
           <section class="dashboard-visual" aria-label="Multilox farm views">
-            <div class="farm-tile farm-tile-large"><img src="assets/farm/farm-4.jpg" alt="Farm workers in the field" /></div>
-            <div class="farm-tile"><img src="assets/farm/farm-1.jpg" alt="Farm field view" /></div>
-            <div class="farm-tile"><img src="assets/farm/farm-2.jpg" alt="Farm operations" /></div>
-            <div class="farm-tile"><img src="assets/farm/farm-3.jpg" alt="Farm landscape" /></div>
+            <div class="farm-tile farm-tile-large"><span>Harvest</span></div>
+            <div class="farm-tile"><span>Irrigation</span></div>
+            <div class="farm-tile"><span>Planting</span></div>
+            <div class="farm-tile"><span>Field Ops</span></div>
           </section>
 
           <div class="content-grid">
@@ -785,6 +785,6 @@
       </main>
     </div>
 
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=8"></script>
   </body>
 </html>

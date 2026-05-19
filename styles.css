@@ -13,10 +13,6 @@
   --danger: #a83232;
   --shadow: 0 18px 44px rgba(20, 74, 31, 0.11);
   --shadow-strong: 0 28px 70px rgba(12, 63, 28, 0.24);
-  --farm-1: url("assets/farm/farm-1.jpg");
-  --farm-2: url("assets/farm/farm-2.jpg");
-  --farm-3: url("assets/farm/farm-3.jpg");
-  --farm-4: url("assets/farm/farm-4.jpg");
 }
 
 * {
@@ -26,8 +22,7 @@
 body {
   margin: 0;
   background:
-    linear-gradient(rgba(246, 250, 243, 0.34), rgba(246, 250, 243, 0.48)),
-    var(--farm-3) center / cover fixed no-repeat;
+    linear-gradient(145deg, #f2f7ed 0%, #dcebd4 42%, #f8faf4 100%);
   color: var(--ink);
   font-family: Inter, "Segoe UI", Arial, sans-serif;
 }
@@ -148,24 +143,20 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
-  background:
-    linear-gradient(rgba(246, 250, 243, 0.24), rgba(246, 250, 243, 0.36)),
-    var(--farm-3) center / cover fixed no-repeat;
+  background: linear-gradient(145deg, #eef7e8 0%, #f7fbf4 48%, #dcead4 100%);
+  overflow: hidden;
 }
 
-.app-background-photo,
-.login-photo-fixed {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
-}
-
-.app-background-photo {
+.app-field-art {
   position: fixed;
+  inset: auto 0 0 0;
   z-index: 0;
+  height: 42vh;
+  background:
+    repeating-linear-gradient(102deg, rgba(28, 105, 50, 0.16) 0 10px, rgba(255, 255, 255, 0.18) 10px 20px),
+    linear-gradient(180deg, rgba(126, 184, 82, 0.18), rgba(48, 126, 54, 0.28));
+  clip-path: polygon(0 28%, 100% 8%, 100% 100%, 0 100%);
+  pointer-events: none;
 }
 
 .login-screen {
@@ -176,55 +167,46 @@ tbody tr:hover {
   place-items: center;
   padding: 20px;
   background:
-    linear-gradient(120deg, rgba(5, 35, 15, 0.08), rgba(13, 80, 34, 0.03)),
-    var(--farm-4) center / cover no-repeat;
+    radial-gradient(circle at 18% 18%, rgba(246, 221, 123, 0.32), transparent 16rem),
+    linear-gradient(155deg, #103919 0%, #1e7b3a 44%, #f1f8e8 100%);
   overflow: hidden;
 }
 
-.login-photo-fixed {
-  z-index: 0;
-}
-
-.farm-photo-reel {
+.multilox-login-art {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  pointer-events: none;
 }
 
-.farm-photo-reel span {
+.multilox-login-art span {
   position: absolute;
-  inset: -7%;
-  background-position: center;
-  background-size: cover;
-  opacity: 0;
-  transform: scale(1.04);
-  animation: none;
+  color: rgba(255, 255, 255, 0.12);
+  font-size: clamp(76px, 16vw, 210px);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.9;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: multiloxDrift 18s ease-in-out infinite alternate;
 }
 
-.farm-photo-reel img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+.multilox-login-art span:nth-child(1) {
+  left: -6%;
+  top: 8%;
 }
 
-.farm-photo-reel span:nth-child(1) {
-  background-image: var(--farm-4);
-  opacity: 1;
-  transform: none;
+.multilox-login-art span:nth-child(2) {
+  left: 12%;
+  top: 42%;
+  animation-delay: -6s;
 }
 
-.farm-photo-reel span:nth-child(2) {
-  background-image: var(--farm-2);
-}
-
-.farm-photo-reel span:nth-child(3) {
-  background-image: var(--farm-1);
-}
-
-.farm-photo-reel span:nth-child(4) {
-  background-image: var(--farm-3);
+.multilox-login-art span:nth-child(3) {
+  left: -18%;
+  bottom: 5%;
+  animation-delay: -11s;
 }
 
 .login-screen::before,
@@ -256,20 +238,12 @@ tbody tr:hover {
   width: min(100%, 430px);
   border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow-strong);
   backdrop-filter: blur(18px);
   padding: 28px;
   animation: cardRise 520ms ease both;
   overflow: hidden;
-}
-
-.login-card-photo {
-  width: calc(100% + 56px);
-  height: 150px;
-  margin: -28px -28px 4px;
-  object-fit: cover;
-  display: block;
 }
 
 .login-card::before {
@@ -327,8 +301,8 @@ tbody tr:hover {
   top: 0;
   height: 100vh;
   background:
-    linear-gradient(180deg, rgba(11, 37, 19, 0.58), rgba(13, 36, 20, 0.68)),
-    var(--farm-1) center / cover no-repeat;
+    linear-gradient(180deg, rgba(11, 37, 19, 0.96), rgba(13, 36, 20, 0.94)),
+    repeating-linear-gradient(135deg, rgba(120, 194, 87, 0.16) 0 2px, transparent 2px 18px);
   color: #fff;
   padding: 22px;
   box-shadow: 14px 0 44px rgba(12, 63, 28, 0.16);
@@ -426,8 +400,7 @@ tbody tr:hover {
   min-width: 0;
   padding: 26px;
   animation: fadeUp 360ms ease both;
-  background: rgba(246, 250, 243, 0.34);
-  backdrop-filter: blur(1px);
+  background: rgba(246, 250, 243, 0.78);
 }
 
 .topbar {
@@ -538,19 +511,25 @@ tbody tr:hover {
   min-height: 190px;
   border: 1px solid rgba(216, 231, 210, 0.8);
   border-radius: 8px;
-  background-position: center;
-  background-size: cover;
+  display: grid;
+  place-items: end start;
+  background:
+    radial-gradient(circle at 78% 22%, rgba(246, 221, 123, 0.72), transparent 3.5rem),
+    repeating-linear-gradient(105deg, rgba(42, 120, 49, 0.26) 0 8px, rgba(255, 255, 255, 0.26) 8px 16px),
+    linear-gradient(165deg, #cfe7b5, #76ad57 58%, #376f38);
   box-shadow: var(--shadow);
   overflow: hidden;
   animation: tileFloat 8s ease-in-out infinite;
 }
 
-.farm-tile img {
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  object-fit: cover;
-  display: block;
+.farm-tile span {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  padding: 16px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
 }
 
 .farm-tile::after {
@@ -563,21 +542,21 @@ tbody tr:hover {
 }
 
 .farm-tile:nth-child(1) {
-  background-image: var(--farm-4);
+  background:
+    radial-gradient(circle at 75% 22%, rgba(246, 221, 123, 0.82), transparent 4rem),
+    repeating-linear-gradient(105deg, rgba(42, 120, 49, 0.24) 0 10px, rgba(255, 255, 255, 0.26) 10px 20px),
+    linear-gradient(165deg, #d6ebb9, #6ea951 58%, #315f31);
 }
 
 .farm-tile:nth-child(2) {
-  background-image: var(--farm-1);
   animation-delay: 600ms;
 }
 
 .farm-tile:nth-child(3) {
-  background-image: var(--farm-2);
   animation-delay: 1200ms;
 }
 
 .farm-tile:nth-child(4) {
-  background-image: var(--farm-3);
   animation-delay: 1800ms;
 }
 
@@ -591,13 +570,47 @@ tbody tr:hover {
   border-radius: 8px;
   box-shadow: var(--shadow);
   overflow: hidden;
+  background: linear-gradient(180deg, #9ed4f0 0 46%, #a4c879 46% 100%);
 }
 
-.farm-banner img {
+.farm-scene {
+  position: relative;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  display: block;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 44%),
+    linear-gradient(180deg, #9ed4f0 0 48%, #b2d98a 48% 58%, #6fb158 58% 100%);
+}
+
+.farm-sun {
+  position: absolute;
+  right: 12%;
+  top: 18%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #f5d56f;
+  box-shadow: 0 0 48px rgba(245, 213, 111, 0.68);
+}
+
+.farm-hills {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  top: 34%;
+  height: 78px;
+  background:
+    radial-gradient(ellipse at 22% 100%, #5c8b52 0 38%, transparent 39%),
+    radial-gradient(ellipse at 58% 100%, #4f7d49 0 42%, transparent 43%),
+    radial-gradient(ellipse at 88% 100%, #6f9d5c 0 34%, transparent 35%);
+}
+
+.farm-field-lines {
+  position: absolute;
+  inset: 56% 0 0;
+  background:
+    repeating-linear-gradient(100deg, rgba(22, 97, 38, 0.24) 0 7px, rgba(255, 255, 255, 0.2) 7px 15px),
+    linear-gradient(180deg, rgba(78, 151, 62, 0.25), rgba(39, 103, 42, 0.48));
 }
 
 .bulk-table-wrap {
@@ -881,19 +894,12 @@ tbody tr:hover {
   }
 }
 
-@keyframes farmPhotoFade {
+@keyframes multiloxDrift {
   0% {
-    opacity: 1;
-    transform: scale(1.04) translate3d(0, 0, 0);
+    transform: translate3d(-3%, -2%, 0) scale(1);
   }
-  8%,
-  26% {
-    opacity: 1;
-  }
-  34%,
   100% {
-    opacity: 0;
-    transform: scale(1.12) translate3d(-1.5%, -1%, 0);
+    transform: translate3d(5%, 3%, 0) scale(1.05);
   }
 }
 

@@ -883,7 +883,7 @@ function payrollForMonth(month) {
 }
 
 function calculateDeductions(workerId, month, gross) {
-  const nssa = gross > 0 ? cents(gross * 0.035) : 0;
+  const nssa = 0;
   const manual = cents(state.deductions
     .filter((item) => item.workerId === workerId && item.month === month)
     .reduce((sum, item) => sum + Number(item.amount), 0));
@@ -996,7 +996,6 @@ function renderPayslip(workerId) {
       </table>
       <div class="payslip-total">
         <div><span>Gross pay</span><strong>${money(row.gross)}</strong></div>
-        <div><span>NSSA</span><strong>${money(row.deductions.nssa)}</strong></div>
         <div><span>Grocery credits</span><strong>${money(row.deductions.credits)}</strong></div>
         <div><span>Loans / advances</span><strong>${money(row.deductions.loans)}</strong></div>
         <div><span>Other deductions</span><strong>${money(row.deductions.manual)}</strong></div>
