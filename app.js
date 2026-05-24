@@ -149,6 +149,8 @@ const els = {
   creditAmount: document.getElementById("creditAmount"),
   creditStatus: document.getElementById("creditStatus"),
   creditNotes: document.getElementById("creditNotes"),
+  creditSignature: document.getElementById("creditSignature"),
+  clearCreditSignature: document.getElementById("clearCreditSignature"),
   creditItemForm: document.getElementById("creditItemForm"),
   creditItemName: document.getElementById("creditItemName"),
   creditItemPrice: document.getElementById("creditItemPrice"),
@@ -159,6 +161,8 @@ const els = {
   bulkCreditMonth: document.getElementById("bulkCreditMonth"),
   bulkCreditStatus: document.getElementById("bulkCreditStatus"),
   bulkCreditItemsTable: document.getElementById("bulkCreditItemsTable"),
+  bulkCreditSignature: document.getElementById("bulkCreditSignature"),
+  clearBulkCreditSignature: document.getElementById("clearBulkCreditSignature"),
   cancelCreditEdit: document.getElementById("cancelCreditEdit"),
   creditFilterWorker: document.getElementById("creditFilterWorker"),
   creditFilterMonth: document.getElementById("creditFilterMonth"),
@@ -240,6 +244,11 @@ els.attendanceFilterMonth.value = currentMonth;
 els.loanDate.value = todayIso;
 els.loanStartMonth.value = currentMonth;
 els.deductionMonth.value = currentMonth;
+
+const signaturePads = {
+  credit: createSignaturePad(els.creditSignature),
+  bulkCredit: createSignaturePad(els.bulkCreditSignature),
+};
 
 function baseState() {
   return { workers: [], rates: [], workRecords: [], deductions: [], credits: [], creditItems: [], users: [], attendance: [], loans: [], payrollLocks: [], settings: DEFAULT_SETTINGS };
@@ -480,6 +489,89 @@ function safeImageDataUrl(value) {
   return String(value || "").startsWith("data:image/") ? value : "";
 }
 
+function createSignaturePad(canvas) {
+  const ctx = canvas.getContext("2d");
+  let drawing = false;
+  let hasInk = false;
+
+  function resize() {
+    const existing = hasInk ? canvas.toDataURL("image/png") : "";
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * ratio));
+    canvas.height = Math.max(1, Math.round(rect.height * ratio));
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#101f14";
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    if (existing) load(existing);
+  }
+
+  function point(event) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function start(event) {
+    event.preventDefault();
+    drawing = true;
+    hasInk = true;
+    canvas.setPointerCapture?.(event.pointerId);
+    const { x, y } = point(event);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }
+
+  function move(event) {
+    if (!drawing) return;
+    event.preventDefault();
+    const { x, y } = point(event);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  }
+
+  function end(event) {
+    drawing = false;
+    canvas.releasePointerCapture?.(event.pointerId);
+  }
+
+  function clear() {
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    hasInk = false;
+  }
+
+  function load(dataUrl) {
+    clear();
+    const safeDataUrl = safeImageDataUrl(dataUrl);
+    if (!safeDataUrl) return;
+    const image = new Image();
+    image.onload = () => {
+      const rect = canvas.getBoundingClientRect();
+      ctx.drawImage(image, 0, 0, rect.width, rect.height);
+      hasInk = true;
+    };
+    image.src = safeDataUrl;
+  }
+
+  function dataUrl() {
+    return hasInk ? canvas.toDataURL("image/png") : "";
+  }
+
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  window.addEventListener("resize", resize);
+  requestAnimationFrame(resize);
+
+  return { clear, dataUrl, hasInk: () => hasInk, load, resize };
+}
+
 function id(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -558,6 +650,12 @@ function setView(viewId) {
   els.views.forEach((view) => view.classList.toggle("active", view.id === viewId));
   const activeButton = [...els.navButtons].find((button) => button.dataset.view === viewId);
   els.pageTitle.textContent = activeButton?.textContent || "Dashboard";
+  if (viewId === "credits") {
+    requestAnimationFrame(() => {
+      signaturePads.credit.resize();
+      signaturePads.bulkCredit.resize();
+    });
+  }
 }
 
 function renderAll() {
@@ -861,6 +959,7 @@ function renderCredits() {
 
   els.creditsTable.innerHTML = rows.map((credit) => {
     const worker = getWorker(credit.workerId);
+    const signature = safeImageDataUrl(credit.signatureDataUrl);
     return `
       <tr>
         <td>${esc(credit.date)}</td>
@@ -869,6 +968,7 @@ function renderCredits() {
         <td>${esc(credit.payrollMonth)}</td>
         <td><strong>${money(credit.amount)}</strong></td>
         <td><span class="status ${credit.status === "deducted" ? "active" : "inactive"}">${esc(credit.status)}</span></td>
+        <td>${signature ? `<img class="signature-thumb" src="${esc(signature)}" alt="Employee signature" />` : `<span class="status inactive">Unsigned</span>`}</td>
         <td>
           <div class="row-actions">
             <button type="button" data-edit-credit="${esc(credit.id)}">Edit</button>
@@ -877,7 +977,7 @@ function renderCredits() {
         </td>
       </tr>
     `;
-  }).join("") || emptyRow(7, "No grocery credits recorded.");
+  }).join("") || emptyRow(8, "No grocery credits recorded.");
 
   const balances = creditBalances();
   els.creditBalances.innerHTML = balances.map((row) => summaryRow(row.workerLabel, money(row.balance))).join("") || emptySummary("No outstanding grocery credit balances.");
@@ -1245,6 +1345,7 @@ function resetCreditForm() {
   els.creditId.value = "";
   els.creditDate.value = todayIso;
   els.creditMonth.value = currentMonth;
+  signaturePads.credit.clear();
 }
 
 function resetAttendanceForm() {
@@ -1765,6 +1866,10 @@ els.bulkCreditItemsTable.addEventListener("input", (event) => {
 els.bulkCreditForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!ensureUnlockedMonth(els.bulkCreditMonth.value, "Credit payroll month")) return;
+  if (!signaturePads.bulkCredit.hasInk()) {
+    alert("Ask the employee to sign for the goods before saving.");
+    return;
+  }
   const selectedItems = [];
   els.bulkCreditItemsTable.querySelectorAll("tr[data-credit-item]").forEach((row) => {
     if (!row.querySelector(".bulk-credit-take").checked) return;
@@ -1794,14 +1899,21 @@ els.bulkCreditForm.addEventListener("submit", async (event) => {
     status: els.bulkCreditStatus.value,
     notes: "Bulk item issue",
     items: selectedItems,
+    signatureDataUrl: signaturePads.bulkCredit.dataUrl(),
+    signedAt: new Date().toISOString(),
   });
   await saveState();
+  signaturePads.bulkCredit.clear();
   renderAll();
 });
 
 els.creditForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!ensureUnlockedMonth(els.creditMonth.value, "Credit payroll month")) return;
+  if (!signaturePads.credit.hasInk()) {
+    alert("Ask the employee to sign for the goods before saving.");
+    return;
+  }
   const existing = state.credits.find((credit) => credit.id === els.creditId.value);
   const credit = {
     id: existing?.id || id("credit"),
@@ -1812,6 +1924,8 @@ els.creditForm.addEventListener("submit", (event) => {
     amount: cents(Number(els.creditAmount.value)),
     status: els.creditStatus.value,
     notes: els.creditNotes.value.trim(),
+    signatureDataUrl: signaturePads.credit.dataUrl(),
+    signedAt: existing?.signedAt || new Date().toISOString(),
   };
   if (existing) {
     Object.assign(existing, credit);
@@ -1836,6 +1950,7 @@ els.creditsTable.addEventListener("click", (event) => {
     els.creditAmount.value = credit.amount;
     els.creditStatus.value = credit.status;
     els.creditNotes.value = credit.notes;
+    signaturePads.credit.load(credit.signatureDataUrl);
   }
   if (deleteId && confirm("Delete this credit record? It will no longer be deducted from payroll.")) {
     state.credits = state.credits.filter((credit) => credit.id !== deleteId);
@@ -1845,6 +1960,8 @@ els.creditsTable.addEventListener("click", (event) => {
 });
 
 els.cancelCreditEdit.addEventListener("click", resetCreditForm);
+els.clearCreditSignature.addEventListener("click", () => signaturePads.credit.clear());
+els.clearBulkCreditSignature.addEventListener("click", () => signaturePads.bulkCredit.clear());
 [els.creditFilterWorker, els.creditFilterMonth, els.creditFilterStatus].forEach((filter) => {
   filter.addEventListener("input", renderCredits);
 });
@@ -2217,9 +2334,9 @@ document.querySelectorAll("[data-export]").forEach((button) => {
       downloadCsv("farm-expenses.csv", [["Work Type", "Total"], ...groupBy(state.workRecords, "workType").map(([workType, records]) => [workType, records.reduce((sum, record) => sum + Number(record.total), 0)])]);
     }
     if (type === "credits") {
-      downloadCsv("credit-deductions.csv", [["Date", "Payroll Month", "Worker", "Item", "Amount", "Status"], ...state.credits.map((credit) => {
+      downloadCsv("credit-deductions.csv", [["Date", "Payroll Month", "Worker", "Item", "Amount", "Status", "Signed"], ...state.credits.map((credit) => {
         const worker = getWorker(credit.workerId);
-        return [credit.date, credit.payrollMonth, worker ? `${worker.employeeNumber} - ${worker.fullName}` : "Deleted worker", credit.item, credit.amount, credit.status];
+        return [credit.date, credit.payrollMonth, worker ? `${worker.employeeNumber} - ${worker.fullName}` : "Deleted worker", credit.item, credit.amount, credit.status, credit.signatureDataUrl ? "Yes" : "No"];
       })]);
     }
     if (type === "payroll-excel") {

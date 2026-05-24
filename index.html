@@ -494,6 +494,15 @@
                   <tbody id="bulkCreditItemsTable"></tbody>
                 </table>
               </div>
+              <div class="signature-field">
+                <label>Employee signature
+                  <canvas id="bulkCreditSignature" class="signature-pad" aria-label="Employee signature for issued items"></canvas>
+                </label>
+                <div class="signature-actions">
+                  <span>Use finger or mouse to sign before saving.</span>
+                  <button class="secondary-button" id="clearBulkCreditSignature" type="button">Clear signature</button>
+                </div>
+              </div>
               <div class="form-actions">
                 <button type="submit">Save selected items</button>
               </div>
@@ -519,6 +528,15 @@
                   </select>
                 </label>
                 <label class="wide">Notes<input id="creditNotes" /></label>
+              </div>
+              <div class="signature-field">
+                <label>Employee signature
+                  <canvas id="creditSignature" class="signature-pad" aria-label="Employee signature for grocery credit"></canvas>
+                </label>
+                <div class="signature-actions">
+                  <span>Use finger or mouse to sign before saving.</span>
+                  <button class="secondary-button" id="clearCreditSignature" type="button">Clear signature</button>
+                </div>
               </div>
               <div class="form-actions">
                 <button type="submit">Save credit</button>
@@ -549,6 +567,7 @@
                       <th>Payroll month</th>
                       <th>Amount</th>
                       <th>Status</th>
+                      <th>Signature</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
